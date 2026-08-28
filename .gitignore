@@ -18,3 +18,10 @@ runs/
 
 # OS
 .DS_Store
+
+# Others
+5-minute-presentation.md
+hackathon-brief.pdf
+implementation-sequence.md
+implementation-plan.md
+proofbench-prd.md

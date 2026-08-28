@@ -1,0 +1,94 @@
+[project]
+name = "proofbench"
+version = "0.1.0"
+description = "Migration Court: the pre-merge trial for AI-written database migrations"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+
+dependencies = [
+    "pydantic>=2.9",
+    "typer>=0.15",
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+proofbench = "proofbench.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-PyYAML>=6.0.12",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/proofbench"]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "B",         # bugbear
+    "UP",        # pyupgrade
+    "S",         # bandit: security
+    "PTH",       # use pathlib
+    "RET",       # return simplification
+    "SIM",       # simplify
+    "TID",       # tidy imports
+    "ANN",       # require annotations
+]
+ignore = [
+    "ANN401",  # Any is occasionally correct at trust boundaries
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert; tests may use hardcoded fixture values.
+# Tests assert, use fixture literals, and drive the CLI as a real subprocess
+# with a fixed argv. None of those is the risk these rules exist to catch.
+"tests/**" = ["S101", "S105", "S106", "S603", "ANN"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+disallow_any_generics = true
+no_implicit_reexport = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: requires a running Docker daemon and a PostgreSQL sandbox",
+    "security: containment and oracle-isolation tests",
+    "e2e: full case run from case.yaml to certificate",
+]

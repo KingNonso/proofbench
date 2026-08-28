@@ -1,0 +1,75 @@
+schema_version: "1.0"
+policy_id: aidledger-default
+version: 1
+
+roles:
+  - name: aidledger_app
+    description: Tenant worker; the running application
+    tenant_scoped: true
+  - name: aidledger_org_admin
+    description: Organisation administrator; wider read within its own organisation
+    tenant_scoped: true
+  - name: aidledger_auditor
+    description: Auditor; read-only access to its own organisation's history
+    tenant_scoped: true
+  - name: aidledger_service
+    description: Background settlement and backfill process
+    tenant_scoped: true
+
+# Both directions are declared. A world that only checked that permitted access
+# still works would pass a migration that granted the world to everyone.
+tenant_access:
+  - role: aidledger_app
+    table: payments
+    read_own: true
+    read_other: false
+    write_own: true
+    write_other: false
+  - role: aidledger_org_admin
+    table: payments
+    read_own: true
+    read_other: false
+    write_own: false
+    write_other: false
+  - role: aidledger_service
+    table: payments
+    read_own: true
+    read_other: false
+    write_own: true
+    write_other: false
+  - role: aidledger_auditor
+    table: audit_events
+    read_own: true
+    read_other: false
+    write_own: false
+    write_other: false
+
+invariants:
+  - id: INV-RLS-001
+    description: No session may read rows belonging to an organisation other than its own
+    blocking: true
+  - id: INV-RLS-002
+    description: Every declared role retains the access the policy grants it
+    blocking: true
+  - id: INV-RLS-003
+    description: No declared role gains access the policy does not grant it
+    blocking: true
+
+lock:
+  # Configures a session lock_timeout, so PostgreSQL produces the verdict as
+  # SQLSTATE 55P03. Measured wall time is evidence, never the decision input.
+  budget_ms: 250
+  disallowed_modes:
+    - ACCESS EXCLUSIVE
+
+money:
+  minor_units_only: true
+  allow_float_conversion: false
+
+migration_capabilities:
+  allow_create_role: false
+  allow_alter_system: false
+  allow_create_tablespace: false
+  allow_copy_program: false
+  allow_untrusted_languages: false
+  allowed_extensions: []

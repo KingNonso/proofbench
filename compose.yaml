@@ -1,0 +1,38 @@
+# Disposable AidLedger sandbox.
+#
+# This file exists to pin the database image in one declarative place and to let
+# `make bootstrap` pre-pull it. The world runner starts its own per-run containers;
+# it does not depend on this project being up.
+#
+# The image is pinned by OCI *index* digest so it resolves on both arm64 and amd64.
+# The resolved per-platform image id is recorded in each run's environment.json.
+name: proofbench
+
+services:
+  aidledger:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    environment:
+      # Disposable local sandbox on a private network with no published port.
+      # No credential is stored here, so none can leak into the submission.
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: aidledger_admin
+      POSTGRES_DB: aidledger_base
+      TZ: UTC
+      PGTZ: UTC
+    command:
+      - postgres
+      - -c
+      - timezone=UTC
+      - -c
+      - lc_messages=C
+      - -c
+      - log_statement=all
+      - -c
+      - log_lock_waits=on
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aidledger_admin -d aidledger_base"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

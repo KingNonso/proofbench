@@ -1,0 +1,42 @@
+# CI grows with the code.
+#
+# Only jobs that verify something real are here. The integration, security,
+# replay, and submission jobs from implementation-plan.md section 16 are added
+# when they have artifacts to verify; an always-green empty job is worse than a
+# missing one because it looks like coverage.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static:
+    name: format, lint, types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: uv run ruff format --check src tests
+      - run: uv run ruff check src tests
+      - run: uv run mypy src
+
+  unit:
+    name: unit and schema tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      # No provider variables are set anywhere in this workflow. The offline
+      # judge path must never depend on one.
+      - run: uv run pytest

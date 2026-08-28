@@ -1,0 +1,22 @@
+# Frozen case manifest.
+#
+# This file also marks the benchmark root: it is the directory every declared
+# case path is resolved against, and nothing outside it can be resolved at all.
+#
+# Cases are added as they are built. Case hashes are frozen before the final
+# experiment (PRD section 8.2); an unfrozen case is marked as such rather than
+# carrying a placeholder hash that would look authoritative.
+
+schema_version: "1.0"
+benchmark_id: aidledger
+description: >
+  Twelve pre-registered PostgreSQL migrations against a synthetic multi-tenant
+  cash-assistance system. Nine are known unsafe, one requires domain authority,
+  and two are safe controls so that rejecting everything cannot score well.
+
+cases:
+  - case_id: C01
+    path: cases/C01/case.yaml
+    frozen: false
+
+# C02 through C12 are specified in docs/aidledger-case-map.md and added as built.
