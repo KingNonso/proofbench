@@ -66,27 +66,29 @@ Honest build state. Nothing is described as working before its artifact exists
 | Phase 0 evidence: brief delta, provenance, 12-case map | **Built** |
 | Project toolchain, standards, CI (static, unit, docker) | **Built** |
 | Typed intake: case and policy schemas, contained path resolution, input hashing | **Built** |
-| `proofbench case validate` | **Built** |
-| AidLedger fixture, roles, RLS policies | **Built** |
 | Disposable PostgreSQL sandbox, restricted migration role, database-per-world | **Built** |
 | Tenant isolation world, decision policy, confirmed blast radius | **Built** |
-| Trace writer, hash chain, validator, redaction | **Built** |
-| Certificate, manifest, and offline replay | Not built |
-| `proofbench review` command | Not built |
+| Trace writer, hash chain, validator, redaction, readable trajectory | **Built** |
+| Migration Change Certificate in JSON, Markdown, and HTML | **Built** |
+| Manifest, bundle root, and offline replay | **Built** |
+| Oracle process boundary and `OracleSpec` | **Built** |
+| `case validate`, `review`, `replay`, `trace validate`, `certificate verify` | **Built** |
 | Money, rolling, interruption, rollback, lock, and audit worlds | Not built |
 | Cases C02 through C12 | Not built |
 | Three product agents and live provider | Not built |
+| Human authority path (C04 ruling packet) | Not built |
 | Fair direct-review baseline and paired evaluation | Not built |
 
-C01 currently reaches `BLOCKED` end to end with zero model calls: the visible
-schema test passes, the tenant isolation world observes two Southgate payment rows
-from a Northwind session, and the confirmed blast radius names the role, tenant,
-and row keys. It is exercised by `tests/e2e/test_c01_blocked.py` rather than by a
-CLI command, because `review` needs a certificate to be worth registering.
+**Release gate R1 is closed.** C01 goes from `case.yaml` to `BLOCKED` with no model
+call: the visible schema test passes, the tenant isolation world observes two
+Southgate payment rows from a Northwind session, the confirmed blast radius names
+role, tenant, operation and row keys, and the certificate replays from a clean
+database. `make replay` reproduces the committed golden bundle offline.
 
-`make baseline`, `make evaluate`, and `make replay` exit non-zero with `EVIDENCE_NOT_BUILT`
-until they have real evidence to verify. That is deliberate: a judge-facing command that
-passes without verifying anything is worse than one that says why it cannot.
+`make baseline` and `make evaluate` still exit non-zero with `EVIDENCE_NOT_BUILT`
+until there is committed evidence for them to verify. That is deliberate: a
+judge-facing command that passes without verifying anything is worse than one
+that says why it cannot.
 
 ---
 
@@ -103,11 +105,18 @@ make evaluate    # recompute metrics and verify committed run manifests
 make replay      # re-run deterministic checks for committed golden certificates
 ```
 
-Currently working, beyond the above:
+Review a candidate and read its certificate:
 
 ```bash
 uv run proofbench case validate benchmark/aidledger/cases/C01/case.yaml
+uv run proofbench review benchmark/aidledger/cases/C01/case.yaml
+uv run proofbench replay tests/golden/C01/certificate.json
+uv run proofbench certificate verify tests/golden/C01/certificate.json
+uv run proofbench trace validate tests/golden/C01/trajectory.jsonl
 ```
+
+`review` exits non-zero for a blocked candidate, so it composes with CI. Open
+`runs/<run_id>/certificate.html` to read the result.
 
 ---
 
@@ -124,7 +133,8 @@ uv run proofbench case validate benchmark/aidledger/cases/C01/case.yaml
 | `src/proofbench/` | Implementation |
 | `benchmark/aidledger/` | Synthetic fixture and the 12 frozen cases |
 | `benchmark/aidledger/evaluator_only/` | Oracle. Never readable by product code |
-| `tests/` | unit, integration, security, e2e, golden |
+| `tests/` | unit, integration, security, e2e |
+| `tests/golden/C01/` | Committed golden bundle that `make replay` reproduces |
 
 ---
 

@@ -33,7 +33,7 @@ evaluate: ## Recompute metrics and verify committed run manifests
 	@scripts/not-built.sh evaluate "results/summary.json and committed run manifests"
 
 replay: ## Re-run deterministic checks for committed golden certificates
-	@scripts/not-built.sh replay "tests/golden/*/certificate.json"
+	@scripts/replay-golden.sh
 
 ## ---------------------------------------------------------------------------
 ## Developer targets

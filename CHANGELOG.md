@@ -131,3 +131,45 @@ The template clone is roughly 32x faster than a container start, which is what
 makes database-per-world worth its isolation contract across twelve cases and
 seven worlds. Cluster roles and settings are fingerprinted before and after every
 world; a change voids the evidence.
+
+### 2026-08-28 — Release gate R1 closed: certificate, manifest, and offline replay
+
+C01 now travels from `case.yaml` to a replayable Migration Change Certificate
+with no model call. 174 tests pass.
+
+**Oracle isolation is a process boundary, not a path check.** `OracleSpec` uses a
+`case_class` enum rather than an `is_unsafe` boolean, because C04 is neither safe
+nor unsafe — its correct outcome is that a human is asked, and a boolean cannot
+say that. `read_oracle` requires a `ClosedReview`, which only a parent that waited
+for the review subprocess can hold; the existence of a decision file is not
+authorisation, since product code could write one itself. `product_view` builds a
+benchmark copy with the oracle removed, so containment does not depend on the
+subprocess behaving. An AST import test walks the graph rather than grepping, so a
+re-export cannot slip past, and a string grep backs it up.
+
+**Manifest layering avoids a hash cycle.** Write order is
+`certificate.json -> certificate.md/.html -> manifest.json -> bundle-root.txt`.
+The certificate links the manifest by path and never by digest; a manifest that
+hashed the certificate while the certificate embedded the manifest's hash could
+never be verified at all. `replay.log` is excluded from manifest hashes and from
+version control, because it is regenerated on every replay.
+
+**Replay verifies before it executes.** If the recorded bytes do not match, the
+rerun is skipped and reported as skipped rather than run — a rerun against
+unverified bytes would compare the wrong two things and could launder a
+difference into a confirmation. Tested against a changed candidate, a changed
+policy, a tampered artifact, a rewritten trace event, and a broken bundle root.
+
+**Fixed: confirmed impacts cited every check in their finding.** Each blast-radius
+row now cites only the check that observed it. A confirmed impact citing four
+checks when one saw it is a bibliography, not traceable evidence.
+
+**Implementation note: `review` is a linear sequence, not a state machine.** With
+one world and no agents there are no branches worth a transition table, and a
+state machine built before it has states to hold would be scaffolding rather than
+structure. It becomes one when remediation and the authority path arrive.
+
+Gate R1 evidence: `tests/golden/C01/` holds the committed bundle, `make replay`
+reproduces it with provider variables unset, and the first HTML viewport carries
+all seven PRD-FR-060 fields including the replay command.
+

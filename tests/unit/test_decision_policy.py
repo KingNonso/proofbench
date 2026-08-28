@@ -81,3 +81,19 @@ def test_confirmed_requires_an_observation_that_actually_saw_something():
     )
     # A role that used access it was entitled to is evidence, not harm.
     assert decide([result]).confirmed == []
+
+
+def test_a_confirmed_impact_cites_only_the_check_that_observed_it():
+    # A blast-radius row citing every check in the finding is a bibliography,
+    # not traceable evidence.
+    result = factories.world_result(
+        status=factories.WorldStatus.FAILED,
+        findings=[
+            factories.finding(
+                check_ids=["rls:a", "rls:b", "rls:c"],
+                observations=[factories.observation(probe_id="app-select-other")],
+            )
+        ],
+    )
+    confirmed = decide([result]).confirmed
+    assert [item.check_ids for item in confirmed] == [["rls:app-select-other"]]

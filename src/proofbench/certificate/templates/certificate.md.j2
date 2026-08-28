@@ -1,0 +1,94 @@
+# Migration Change Certificate — {{ cert.case_id }}
+
+**{{ cert.first_screen.external_state }}**
+
+| | |
+| --- | --- |
+| Candidate change | {{ cert.first_screen.candidate_change }} |
+| Decisive invariant | {{ cert.first_screen.decisive_invariant }} |
+| Required next action | {{ cert.first_screen.required_action }} |
+| Human ruling | {{ cert.first_screen.human_ruling or "none required" }} |
+
+## Confirmed blast radius
+
+{% if cert.first_screen.confirmed_blast_radius %}
+Derived from executed evidence only.
+
+| Invariant | Role | Operation | Affected tenant | Rows | Evidence |
+| --- | --- | --- | --- | ---: | --- |
+{% for item in cert.first_screen.confirmed_blast_radius -%}
+| {{ item.invariant_id }} | `{{ item.role }}` | {{ item.operation }} | `{{ item.affected_tenant }}` | {{ item.rows_affected }} | {{ item.check_ids | join(", ") }} |
+{% endfor %}
+{% else %}
+Nothing confirmed.
+{% endif %}
+
+## Replay
+
+```bash
+{{ cert.first_screen.replay_command }}
+```
+
+---
+
+## Decision
+
+{% for reason in cert.decision.reasons -%}
+- {{ reason }}
+{% endfor %}
+
+Decisive checks: {{ cert.decision.decisive_check_ids | join(", ") or "none" }}
+Evidence complete: {{ "yes" if cert.decision.evidence_complete else "no" }}
+Possible impact (not executed): {{ cert.decision.possible | length }}
+
+## Visible tests
+
+{% for check in cert.visible_tests -%}
+- `{{ check.check_id }}` — **{{ check.status }}**{% if check.sqlstate %} (SQLSTATE {{ check.sqlstate }}){% endif %}
+{% endfor %}
+
+## Worlds
+
+{% for result in cert.world_results %}
+### {{ result.world }} — {{ result.status }}
+
+Threatened invariants: {{ result.threatened_invariants | join(", ") }}
+Checks executed: {{ result.checks | length }}
+Semantic digest: `{{ result.semantic_digest }}`
+
+{% for finding in result.findings -%}
+- **{{ finding.invariant_id }}** — {{ finding.summary }}
+  - expected: {{ finding.expected }}
+  - observed: {{ finding.observed }}
+{% endfor %}
+{% for failure in result.failures -%}
+- evidence failure in {{ failure.stage }}: {{ failure.reason }}
+{% endfor %}
+{% endfor %}
+
+## Trajectory
+
+{{ cert.trajectory.events }} events, root `{{ cert.trajectory.trace_root_hash[:16] }}`.
+
+{% for entry in cert.trajectory.narrative -%}
+{{ loop.index }}. {{ entry }}
+{% endfor %}
+
+## Environment
+
+| | |
+| --- | --- |
+| Python | {{ cert.environment.python_version }} |
+| Platform | {{ cert.environment.platform }} |
+| PostgreSQL image | `{{ cert.environment.postgres_image }}` |
+| Resolved image id | `{{ cert.environment.resolved_image_id or "not recorded" }}` |
+| Time zone | {{ cert.environment.timezone }} |
+
+Inputs digest: `{{ cert.inputs_digest }}`
+Manifest: `{{ cert.manifest_path }}`
+
+## Known limits
+
+{% for limit in cert.known_limits -%}
+- {{ limit }}
+{% endfor %}

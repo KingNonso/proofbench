@@ -3,6 +3,9 @@
 Only implemented commands are registered. A judge-facing CLI that advertises a
 command which exits "not implemented" is worse than one that is honestly small
 (AGENTS.md section 5). Commands are added as their slice lands.
+
+None of these commands calls a model. ``review`` and ``replay`` both run to
+completion with no provider variable set, which is what the judge path depends on.
 """
 
 from __future__ import annotations
@@ -13,8 +16,14 @@ from typing import Annotated
 import typer
 
 from proofbench import __version__
+from proofbench.certificate.replay import replay as replay_bundle
+from proofbench.certificate.replay import verify_bundle
+from proofbench.domain.certificate import RunManifest
+from proofbench.domain.decision import ExternalState
 from proofbench.errors import ExitCode, ProofBenchError
 from proofbench.intake.loader import load_case
+from proofbench.tracing.validator import validate_trace
+from proofbench.workflow.review import load_certificate, review_case
 
 app = typer.Typer(
     name="proofbench",
@@ -22,7 +31,13 @@ app = typer.Typer(
     add_completion=False,
 )
 case_app = typer.Typer(help="Inspect and validate case definitions.", no_args_is_help=True)
+trace_app = typer.Typer(help="Inspect run trajectories.", no_args_is_help=True)
+certificate_app = typer.Typer(help="Inspect Migration Change Certificates.", no_args_is_help=True)
 app.add_typer(case_app, name="case")
+app.add_typer(trace_app, name="trace")
+app.add_typer(certificate_app, name="certificate")
+
+DEFAULT_RUNS_ROOT = Path("runs")
 
 
 @app.callback(invoke_without_command=True)
@@ -66,6 +81,127 @@ def case_validate(
     for item in loaded.inputs:
         typer.echo(f"    {item.sha256[:12]}  {item.bytes:>8}  {item.declared_path}")
     typer.echo(f"  inputs digest  {loaded.inputs_digest}")
+
+
+@app.command("review")
+def review(
+    case_path: Annotated[
+        Path, typer.Argument(help="Path to a case.yaml file.", show_default=False)
+    ],
+    runs_root: Annotated[
+        Path, typer.Option("--runs-root", help="Where to write the run bundle.")
+    ] = DEFAULT_RUNS_ROOT,
+) -> None:
+    """Review a candidate migration and write its Migration Change Certificate.
+
+    Makes no model call. The decision comes from deterministic checks; the exit
+    code reflects the product state, so a blocked candidate fails the command.
+    """
+    cert, run_dir = review_case(case_path, runs_root=runs_root)
+    state = cert.first_screen.external_state
+
+    colour = {
+        ExternalState.READY_FOR_REVIEW.value: typer.colors.GREEN,
+        ExternalState.BLOCKED.value: typer.colors.RED,
+        ExternalState.DOMAIN_RULING_REQUIRED.value: typer.colors.YELLOW,
+        ExternalState.EVIDENCE_INCOMPLETE.value: typer.colors.MAGENTA,
+    }[state]
+
+    typer.secho(f"{state}  {cert.case_id}  {cert.case_title}", fg=colour, bold=True)
+    typer.echo(f"  decisive invariant  {cert.first_screen.decisive_invariant}")
+    for item in cert.first_screen.confirmed_blast_radius:
+        typer.echo(
+            f"  confirmed           {item.role} {item.operation} "
+            f"{item.rows_affected} row(s) of tenant {item.affected_tenant}"
+        )
+    typer.echo(f"  next action         {cert.first_screen.required_action}")
+    typer.echo(f"  bundle              {run_dir}")
+    typer.echo(f"  replay              {cert.first_screen.replay_command}")
+
+    if state != ExternalState.READY_FOR_REVIEW.value:
+        raise typer.Exit(
+            ExitCode.EVIDENCE_INCOMPLETE
+            if state == ExternalState.EVIDENCE_INCOMPLETE.value
+            else ExitCode.VALIDATION
+        )
+
+
+@app.command("replay")
+def replay(
+    certificate_path: Annotated[
+        Path, typer.Argument(help="Path to a certificate.json.", show_default=False)
+    ],
+    benchmark_root: Annotated[
+        Path | None,
+        typer.Option("--benchmark-root", help="Benchmark root the inputs are resolved against."),
+    ] = None,
+) -> None:
+    """Re-run the deterministic evidence behind a certificate and compare.
+
+    Never calls a model. Exits non-zero on any mismatch.
+    """
+    root = benchmark_root or Path("benchmark/aidledger")
+    report = replay_bundle(certificate_path, benchmark_root=root)
+
+    for step in report.steps:
+        mark = "PASS" if step.ok else "FAIL"
+        colour = typer.colors.GREEN if step.ok else typer.colors.RED
+        typer.secho(f"[{mark}] {step.name}", fg=colour)
+        if step.detail:
+            typer.echo(f"       {step.detail}")
+
+    log = certificate_path.resolve().parent / "replay.log"
+    typer.echo(f"\nwrote {log}")
+    if not report.ok:
+        typer.secho("REPLAY MISMATCH", fg=typer.colors.RED, bold=True, err=True)
+        raise typer.Exit(ExitCode.INTEGRITY)
+    typer.secho("replay matched", fg=typer.colors.GREEN, bold=True)
+
+
+@trace_app.command("validate")
+def trace_validate(
+    trace_path: Annotated[
+        Path, typer.Argument(help="Path to a trajectory.jsonl.", show_default=False)
+    ],
+) -> None:
+    """Verify a trajectory's hash chain, ordering, and terminal event."""
+    result = validate_trace(trace_path)
+    typer.echo(f"events      {result.events}")
+    typer.echo(f"root hash   {result.root_hash or '(none)'}")
+    if result.valid:
+        typer.secho("trace is intact", fg=typer.colors.GREEN)
+        return
+    for problem in result.problems:
+        typer.secho(f"  {problem}", fg=typer.colors.RED, err=True)
+    raise typer.Exit(ExitCode.INTEGRITY)
+
+
+@certificate_app.command("verify")
+def certificate_verify(
+    certificate_path: Annotated[
+        Path, typer.Argument(help="Path to a certificate.json.", show_default=False)
+    ],
+) -> None:
+    """Check a certificate against its bundle without running anything.
+
+    Verification only: no database is started and no world is re-executed. Use
+    `proofbench replay` for that.
+    """
+    cert = load_certificate(certificate_path)
+    bundle = certificate_path.resolve().parent
+    manifest = RunManifest.model_validate_json(
+        (bundle / "manifest.json").read_text(encoding="utf-8")
+    )
+    steps = verify_bundle(bundle, manifest)
+
+    typer.echo(f"{cert.case_id}  {cert.first_screen.external_state}  run {cert.run_id}")
+    for step in steps:
+        mark = "PASS" if step.ok else "FAIL"
+        typer.secho(f"[{mark}] {step.name}", fg=typer.colors.GREEN if step.ok else typer.colors.RED)
+        if step.detail:
+            typer.echo(f"       {step.detail}")
+    if not all(step.ok for step in steps):
+        raise typer.Exit(ExitCode.INTEGRITY)
 
 
 def main() -> None:

@@ -35,7 +35,11 @@ def confirmed_from(world_results: list[WorldResult]) -> list[BlastRadiusItem]:
                             affected_tenant=observation.target_tenant,
                             rows_affected=observation.rows_seen,
                             row_keys=sorted(observation.row_keys),
-                            check_ids=sorted(finding.check_ids),
+                            # The check that produced *this* observation, not
+                            # every check in the finding. A confirmed impact
+                            # citing four checks when one saw it is not
+                            # traceable evidence, it is a bibliography.
+                            check_ids=[f"{result.world}:{observation.probe_id}"],
                             summary=(
                                 f"{observation.role} reached {observation.rows_seen} "
                                 f"{observation.table} row(s) belonging to organisation "

@@ -1,0 +1,24 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C01
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-RLS-001
+
+# What a correct run must have *observed*, not merely asserted. A run that
+# reaches BLOCKED without naming the leaked tenant has reached the right answer
+# for reasons it cannot show.
+expected_blast_radius_assertions:
+  - invariant_id: INV-RLS-001
+    role: aidledger_app
+    affected_tenant: 22222222-2222-4222-8222-222222222222
+    minimum_rows: 2
+
+rationale: >
+  The candidate recreates payments to add settlement_reference. Row-level
+  security is an attribute of the table, so ENABLE, FORCE, and every policy are
+  discarded with the dropped table and are never restored. The final schema is
+  correct and the visible test passes; the tenant boundary is gone. A Northwind
+  application session can read Southgate's two payments.
