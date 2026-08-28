@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C05/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C05/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `585cddb88b1687a011fbe6296e87949b7eaf5bd261b4af67e326f8cad8476e
 
 ## Trajectory
 
-12 events, root `3e180def7b3df3b6`.
+12 events, root `cf73bcc0d7b1bab4`.
 
 1. [ingest] reviewing C05: Drop the old amount column after adding a scaled replacement
 2. [agent:contract_analyst] contract_analyst request, attempt 1

@@ -106,7 +106,7 @@ def _run_final(
         case_path,
         runs_root=run_dir.parent,
         run_id=run_dir.name,
-        remediate=False,
+        remediation_attempts=0,
     )
     state = cert.first_screen.external_state
     metrics_path = run_dir / "metrics.json"

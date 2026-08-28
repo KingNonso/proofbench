@@ -15,13 +15,17 @@ corrected run would be describing a migration nobody wrote.
 
 from __future__ import annotations
 
+import difflib
 import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from proofbench.agents.contract_analyst import PROMPT_PATH as CONTRACT_ANALYST_PROMPT
 from proofbench.agents.contract_analyst import run_contract_analyst
+from proofbench.agents.remediation_engineer import PROMPT_PATH as REMEDIATION_PROMPT
 from proofbench.agents.remediation_engineer import run_remediation_engineer
+from proofbench.agents.test_designer import PROMPT_PATH as TEST_DESIGNER_PROMPT
 from proofbench.agents.test_designer import WORLD_CATALOG, run_test_designer
 from proofbench.certificate.compiler import build_certificate, write_bundle
 from proofbench.decision.policy import decide
@@ -37,7 +41,7 @@ from proofbench.providers.base import ModelProvider
 from proofbench.sandbox.postgres import MIGRATION_ROLE, FixturePaths, PostgresSandbox
 from proofbench.tools.router import ToolRouter
 from proofbench.tracing.compiler import compile_trajectory, render_markdown
-from proofbench.tracing.hashes import canonical_json
+from proofbench.tracing.hashes import canonical_json, hash_file
 from proofbench.tracing.writer import TraceWriter
 from proofbench.workflow.agents import IMPLEMENTED_WORLDS, build_router, fake_provider_for
 from proofbench.workflow.authority import (
@@ -77,7 +81,7 @@ def review_case(
     run_id: str | None = None,
     provider: ModelProvider | None = None,
     use_agents: bool = True,
-    remediate: bool = True,
+    remediation_attempts: int = 1,
     ruling: Ruling | None = None,
 ) -> tuple[MigrationChangeCertificate, Path]:
     """Run a case and write its complete bundle. Returns the certificate."""
@@ -218,7 +222,7 @@ def review_case(
             )
 
         blocking = any(result.has_blocking_finding() for result in world_results)
-        if blocking and remediate and use_agents and provider is not None:
+        if blocking and remediation_attempts > 0 and use_agents and provider is not None:
             # checks.json must exist before the engineer can read it as evidence.
             (run_dir / "checks.json").write_bytes(
                 canonical_json(
@@ -235,6 +239,7 @@ def review_case(
                 run_id=run_id,
                 run_dir=run_dir,
                 writer=writer,
+                attempts=remediation_attempts,
             )
     except EvidenceIncompleteError as exc:
         failures.append(
@@ -301,6 +306,7 @@ def review_case(
         loaded=loaded,
         cert=cert,
         trajectory_markdown=render_markdown(trajectory, run_id=run_id, case_id=loaded.case.case_id),
+        prompt_hashes=_prompt_hashes(contract, plan, remediation),
         extra_artifacts=_artifacts(
             loaded,
             decision,
@@ -315,6 +321,27 @@ def review_case(
         ),
     )
     return cert, run_dir
+
+
+def _prompt_hashes(
+    contract: MigrationContract | None,
+    plan: WorldPlan | None,
+    remediation: RemediationPlan | None,
+) -> dict[str, str]:
+    """Hash the instructions of the agents that actually ran (PRD-FR-001).
+
+    Only agents that produced an artifact appear: a hash for a prompt that never
+    reached a model would claim provenance for something that did not happen.
+    Empty for a --no-agents run, which is then a true statement.
+    """
+    hashes: dict[str, str] = {}
+    if contract is not None:
+        hashes["contract_analyst_v1"] = hash_file(CONTRACT_ANALYST_PROMPT)
+    if plan is not None:
+        hashes["test_designer_v1"] = hash_file(TEST_DESIGNER_PROMPT)
+    if remediation is not None:
+        hashes["remediation_engineer_v1"] = hash_file(REMEDIATION_PROMPT)
+    return hashes
 
 
 def _correction_record(
@@ -366,57 +393,74 @@ def _attempt_correction(
     run_id: str,
     run_dir: Path,
     writer: TraceWriter,
+    attempts: int = 1,
 ) -> tuple[RemediationPlan | None, list[WorldResult]]:
-    """One bounded correction cycle (PRD-FR-042).
+    """A configurable, bounded correction loop (PRD-FR-042).
 
-    At most one attempt. An exhausted budget certifies the blocked result rather
-    than trying again: a loop that keeps proposing until something passes is
-    optimising for a green check, not a correct migration.
+    The bound is the point. A loop that kept proposing until something passed
+    would be optimising for a green check rather than a correct migration, so
+    the budget is fixed before the first attempt and an exhausted budget
+    certifies the blocked result with the best evidence produced so far.
     """
     if contract is None:
         return None, []
 
-    try:
-        plan = run_remediation_engineer(
-            provider=provider,
-            router=router,
-            loaded=loaded,
-            contract=contract,
-            world_results=world_results,
-            trace=writer,
-        )
-    except EvidenceIncompleteError as exc:
+    plan: RemediationPlan | None = None
+    results: list[WorldResult] = []
+    failing = world_results
+
+    for attempt in range(1, attempts + 1):
+        try:
+            plan_candidate = run_remediation_engineer(
+                provider=provider,
+                router=router,
+                loaded=loaded,
+                contract=contract,
+                world_results=failing,
+                trace=writer,
+            )
+        except EvidenceIncompleteError as exc:
+            # Budget or provider exhausted. The blocked result stands, along
+            # with whatever the earlier attempts produced.
+            writer.emit(
+                EventType.ERROR_RECORDED,
+                actor="remediation_engineer",
+                stage="remediate",
+                summary=f"attempt {attempt}: no correction proposed: {exc.message}",
+            )
+            break
+
+        plan = plan_candidate
+        corrected_path = run_dir / "remediation" / "corrected.sql"
+        corrected_path.parent.mkdir(parents=True, exist_ok=True)
+        corrected_path.write_text(plan.corrected_sql, encoding="utf-8")
+
         writer.emit(
-            EventType.ERROR_RECORDED,
+            EventType.REMEDIATION_PROPOSED,
             actor="remediation_engineer",
             stage="remediate",
-            summary=f"no correction proposed: {exc.message}",
+            summary=(
+                f"attempt {attempt} of {attempts}: correction addresses "
+                f"{', '.join(plan.addresses_invariants)}"
+            ),
+            payload={"attempt": attempt, "regression_check": plan.regression_check},
         )
-        return None, []
 
-    corrected_path = run_dir / "remediation" / "corrected.sql"
-    corrected_path.parent.mkdir(parents=True, exist_ok=True)
-    corrected_path.write_text(plan.corrected_sql, encoding="utf-8")
+        # A clean database from the base fixture. The corrected candidate never
+        # sees the state the failed one left behind.
+        database = sandbox.clone(f"corrected-{attempt}")
+        sandbox.apply_sql_file(database, corrected_path, user=MIGRATION_ROLE)
+        results = run_required_worlds(
+            sandbox,
+            loaded,
+            run_id=f"{run_id}-corrected-{attempt}",
+            trace=writer,
+            database_by_world={loaded.case.worlds.required[0].value: database},
+        )
+        if not any(result.has_blocking_finding() for result in results):
+            break
+        failing = results
 
-    writer.emit(
-        EventType.REMEDIATION_PROPOSED,
-        actor="remediation_engineer",
-        stage="remediate",
-        summary=f"correction addresses {', '.join(plan.addresses_invariants)}",
-        payload={"regression_check": plan.regression_check},
-    )
-
-    # A clean database from the base fixture. The corrected candidate never sees
-    # the state the failed one left behind.
-    database = sandbox.clone("rls-corrected")
-    sandbox.apply_sql_file(database, corrected_path, user=MIGRATION_ROLE)
-    results = run_required_worlds(
-        sandbox,
-        loaded,
-        run_id=f"{run_id}-corrected",
-        trace=writer,
-        database_by_world={"rls": database},
-    )
     return plan, results
 
 
@@ -488,6 +532,18 @@ def _artifacts(
         artifacts["world-plan.json"] = canonical_json(plan.model_dump(mode="json"))
     if remediation is not None:
         artifacts["remediation.json"] = canonical_json(remediation.model_dump(mode="json"))
+        # PRD section 12 names remediation.diff. The unified diff is what a
+        # reviewer actually reads: the whole point of a minimal correction is
+        # visible in how little of it there is.
+        original = (root / loaded.case.candidate.migration_path).read_text(encoding="utf-8")
+        artifacts["remediation.diff"] = "".join(
+            difflib.unified_diff(
+                original.splitlines(keepends=True),
+                remediation.corrected_sql.splitlines(keepends=True),
+                fromfile="candidate.sql",
+                tofile="corrected.sql",
+            )
+        ).encode("utf-8")
     if packet is not None:
         artifacts["ruling-packet.json"] = canonical_json(packet.model_dump(mode="json"))
         artifacts["ruling-packet.md"] = packet.render().encode("utf-8")

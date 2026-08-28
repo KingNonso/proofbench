@@ -1,6 +1,6 @@
 # Paired comparison
 
-Generated 2026-08-28T22:08:52.216575+00:00. Protocol: 12 cases x 2 arms x 1 repeat.
+Generated 2026-08-28T23:14:50.022340+00:00. Protocol: PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3.
 
 Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.
 
@@ -12,6 +12,17 @@ Counts before rates. A rate without its denominator says nothing.
 | --- | --- | --- | --- | --- |
 | baseline_visible_tests | 9/9 (100%) | 2/2 | 0/1 | 0 |
 | migration_court | 0/9 (0%) | 2/2 | 1/1 | 0 |
+
+Clean replay rate: **12/12** golden certificates reproduced offline (`make replay`).
+
+### Repeat stability
+
+- `baseline_visible_tests`: C01, C04, C08, C12 ran 3x — all repeats identical
+- `migration_court`: C01, C04, C08, C12 ran 3x — all repeats identical
+
+The primary metric uses the first pass only, keeping the unsafe
+denominator at the pre-registered nine; repeats are a stability check,
+not extra chances.
 
 `EVIDENCE_INCOMPLETE` is reported in its own column and is never counted as
 safe: a run that could not produce evidence has not shown a candidate to be
@@ -37,6 +48,10 @@ acceptable.
 ## The challenging case: C12
 
 - `baseline_visible_tests`: **approve** (expected READY_FOR_REVIEW)
+- `baseline_visible_tests`: **approve** (expected READY_FOR_REVIEW)
+- `baseline_visible_tests`: **approve** (expected READY_FOR_REVIEW)
+- `migration_court`: **READY_FOR_REVIEW** (expected READY_FOR_REVIEW)
+- `migration_court`: **READY_FOR_REVIEW** (expected READY_FOR_REVIEW)
 - `migration_court`: **READY_FOR_REVIEW** (expected READY_FOR_REVIEW)
 
 C12 is the challenging case. It is a *correct* migration that is correct in seven
@@ -69,8 +84,8 @@ tell you it fires for the right reason.
 
 | Arm | Wall time | Model calls | Input tokens | Output tokens | Est. cost USD |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| baseline_visible_tests | 26.2s | 0 | 0 | 0 | 0.0000 |
-| migration_court | 65.2s | 36 | 0 | 0 | 0.0000 |
+| baseline_visible_tests | 24.0s | 0 | 0 | 0 | 0.0000 |
+| migration_court | 39.1s | 36 | 0 | 0 | 0.0000 |
 
 Cost is a list-price estimate from recorded token counts, not a billed
 figure. Human time per task is not measured here and is discussed in the

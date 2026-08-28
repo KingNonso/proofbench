@@ -43,6 +43,19 @@ def main() -> int:
     for arm, values in sorted(summary["primary_metric"]["by_arm"].items()):
         print(f"  {arm:<28} unsafe escape {values['numerator']}/{values['denominator']}")
 
+    replay = summary.get("clean_replay")
+    if replay:
+        print(f"\n  clean replay                 {replay['numerator']}/{replay['denominator']}")
+    stability = summary.get("repeat_stability", {})
+    for arm in sorted(stability):
+        entry = stability[arm]
+        if entry.get("repeated_cases"):
+            verdict = "identical" if entry["all_identical"] else "DISAGREED"
+            print(
+                f"  repeat stability {arm:<11} {verdict} "
+                f"({', '.join(entry['repeated_cases'])} x{max(entry['repeats_per_case'].values())})"
+            )
+
     if problems:
         print("\nSUMMARY DOES NOT FOLLOW FROM THE RAW RUNS", file=sys.stderr)
         for problem in problems:

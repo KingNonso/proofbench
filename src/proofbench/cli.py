@@ -101,8 +101,17 @@ def review(
     ] = True,
     remediate: Annotated[
         bool,
-        typer.Option("--remediate/--no-remediate", help="Attempt one bounded correction."),
+        typer.Option("--remediate/--no-remediate", help="Attempt a bounded correction."),
     ] = True,
+    remediation_attempts: Annotated[
+        int,
+        typer.Option(
+            "--remediation-attempts",
+            min=1,
+            max=5,
+            help="Bounded correction budget (PRD-FR-042). The demo default is one.",
+        ),
+    ] = 1,
     ruling_path: Annotated[
         Path | None,
         typer.Option("--ruling", help="A recorded domain ruling to apply to this run."),
@@ -119,7 +128,7 @@ def review(
         case_path,
         runs_root=runs_root,
         use_agents=agents,
-        remediate=remediate,
+        remediation_attempts=remediation_attempts if remediate else 0,
         ruling=ruling,
     )
     state = cert.first_screen.external_state

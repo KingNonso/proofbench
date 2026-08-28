@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C11/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C11/certificate.json
 ```
 
 ---
@@ -50,7 +50,7 @@ Semantic digest: `52d49068c43c4094fe778a30fbed5720aafa86c9632c00d7dfd7a58612cf83
 
 ## Trajectory
 
-14 events, root `5a74efe94a094f5c`.
+14 events, root `291a237d225fddcd`.
 
 1. [ingest] reviewing C11: Add a nullable settlement reference by expand, backfill, verify and contract
 2. [agent:contract_analyst] contract_analyst request, attempt 1

@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C02/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C02/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `d215c3f3718d8bead4559011fbb5b838b01cfba92bc86765fcb5b6b30982c6
 
 ## Trajectory
 
-12 events, root `4c7f1437425cf93f`.
+12 events, root `b0c2a2f239fc1255`.
 
 1. [ingest] reviewing C02: Restore payments policies for the application role only
 2. [agent:contract_analyst] contract_analyst request, attempt 1

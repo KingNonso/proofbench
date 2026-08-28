@@ -27,7 +27,7 @@ def run_and_score(case_id, benchmark_root, tmp_path):
         benchmark_root / "cases" / case_id / "case.yaml",
         runs_root=tmp_path,
         run_id=case_id,
-        remediate=False,
+        remediation_attempts=0,
     )
     closed = ClosedReview(
         case_id=case_id,

@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C09/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C09/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `f4db7f772c4488f3ef275cec345846f34fff23e53c11c5b28a9444f357b05a
 
 ## Trajectory
 
-12 events, root `88283306877d69be`.
+12 events, root `d4a92aa96a4f98b8`.
 
 1. [ingest] reviewing C09: Settle approved payments through a retried dual-write path
 2. [agent:contract_analyst] contract_analyst request, attempt 1

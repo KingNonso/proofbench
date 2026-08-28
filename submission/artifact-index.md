@@ -11,6 +11,10 @@ artifact is a claim this project does not make.
 | ProofBench lets 0 of 9 through | `results/summary.json` → `primary_metric.by_arm.migration_court` | `make evaluate` |
 | Both arms accept both safe controls | `results/comparison.md`, guardrail table | `make evaluate` |
 | The summary follows from the raw runs | `results/raw-runs.jsonl` | `make evaluate` recomputes and fails on disagreement |
+| The experiment ran the PRD-FR-070 fallback protocol, repeats identical | `results/summary.json` → `repeat_stability` | `make evaluate` |
+| Clean replay rate is part of the report (PRD-FR-072) | `results/summary.json` → `clean_replay` = 12/12 | `make evaluate` |
+| The case manifest was frozen and the experiment enforces it | `benchmark/aidledger/manifest.yaml` (per-case sha256); `scripts/run_experiment.py` refuses drift | `uv run python scripts/run_experiment.py` against an edited case |
+| Every PRD requirement has an audited status | `docs/prd-traceability.md` | `uv run pytest tests/e2e/test_submission.py -k traceability` |
 | Every unsafe candidate passes its own visible test | `tests/golden/*/certificate.json` → `visible_tests` | `uv run pytest tests/e2e/test_all_cases.py -k visible` |
 | All 12 certificates reproduce offline | `tests/golden/*/` | `make replay` |
 | The five-command path works from a clean checkout with no key | `REPRODUCTION.md`, measured timings | `git clone` then the five commands |
@@ -25,6 +29,8 @@ artifact is a claim this project does not make.
 | A human is asked only for domain authority | `tests/golden/C04/ruling-packet.md` |
 | A ruling is executable, and cannot override a failed check | `benchmark/aidledger/cases/C04/rulings/`; `tests/e2e/test_c04_authority.py` |
 | The correction passes on rerun, and the decision stays BLOCKED | `tests/golden/C01/certificate.json` → `correction.verified` alongside `decision.external_state` |
+| The correction is a minimal, readable change | `tests/golden/C01/remediation.diff` — the PRD §12 unified diff |
+| Every §12 artifact exists or is explicitly not applicable | any `tests/golden/*/` bundle: `environment.json`, `run.json` `not_applicable` list |
 | Untrusted SQL cannot escalate | `tests/security/test_migration_containment.py` |
 | The oracle is never readable by product code | `tests/security/test_oracle_boundary.py` |
 

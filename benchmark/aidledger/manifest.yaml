@@ -18,53 +18,65 @@ description: >
 cases:
   - case_id: C01
     path: cases/C01/case.yaml
+    sha256: ff42d8e59ceb0bf9919c011ac302e72acce27ac4808c379a7806389f6e99401a
     title: Recreate payments to add a settlement reference
-    frozen: false
+    frozen: true
   - case_id: C02
     path: cases/C02/case.yaml
+    sha256: 68b91bf36323b54d4aa19a9410d43dfe3866b3d65d9ad1ace88c6b77cdb00e6a
     title: Restore payments policies for the application role only
-    frozen: false
+    frozen: true
   - case_id: C03
     path: cases/C03/case.yaml
+    sha256: 2265e0835b845ed351cd70a0da96b16647235cd64f926dfa0c96958c49c82b20
     title: Re-denominate payment amounts through a floating point conversion
-    frozen: false
+    frozen: true
   - case_id: C04
     path: cases/C04/case.yaml
+    sha256: e191ca37ad5f1d366f992536a551fed454244a22e4f34a80a92c223666e4eb44
     title: Backfill a missing currency and make the column NOT NULL
-    frozen: false
+    frozen: true
   - case_id: C05
     path: cases/C05/case.yaml
+    sha256: 9b60b60a502f65578ef864d86852b0d69b4d3b66d9cada1a0f0c776d251889c8
     title: Drop the old amount column after adding a scaled replacement
-    frozen: false
+    frozen: true
   - case_id: C06
     path: cases/C06/case.yaml
+    sha256: 184c7f23d474bb5672da6a2a177a15fa4f6dbba75d98054455d830e52a4c6998
     title: Backfill disbursements for settled payments without recording progress
-    frozen: false
+    frozen: true
   - case_id: C07
     path: cases/C07/case.yaml
+    sha256: dc315f3f6305a4d158d0c86c4c386522156cc0d9373c4aef48d16e42940736a4
     title: Rewrite payments to add a non-null column with a volatile default
-    frozen: false
+    frozen: true
   - case_id: C08
     path: cases/C08/case.yaml
+    sha256: e1886e737aa246f160ebb02f24a5fe617b6f1426215b8092ff6d0f441323b8c9
     title: Split payment status into a lookup table, with a rollback that restores the old table
-    frozen: false
+    frozen: true
   - case_id: C09
     path: cases/C09/case.yaml
+    sha256: c8aa7c4e6d77fdf0ff24a68f60fc42fdff8cb93e7406c38c975f8243b0953338
     title: Settle approved payments through a retried dual-write path
-    frozen: false
+    frozen: true
   - case_id: C10
     path: cases/C10/case.yaml
+    sha256: 2d64bbc038b0a5e6b53b96030fa05bfff16531b6ab9f109bd25449d949037993
     title: Compact audit history while adding a retention column
-    frozen: false
+    frozen: true
   - case_id: C11
     path: cases/C11/case.yaml
+    sha256: 0cc97eba472499e5251b1f56e1bc6990aebec55b540c42fdf81b6dfebd0e738d
     title: Add a nullable settlement reference by expand, backfill, verify and contract
-    frozen: false
+    frozen: true
   - case_id: C12
     path: cases/C12/case.yaml
+    sha256: b4b79a2148ec17f708251704217cd9cdb771816ebfd7c03f478e6d8c751bf664
     title: Introduce a reconciliation column across a rolling deploy, with a safe rollback
-    frozen: false
+    frozen: true
 
-# frozen: false until the case hashes are recorded before the final experiment
+# frozen: true until the case hashes are recorded before the final experiment
 # (PRD section 8.2). An unfrozen case is marked as such rather than carrying a
 # placeholder hash that would look authoritative.

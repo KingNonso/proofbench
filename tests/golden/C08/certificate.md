@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C08/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C08/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `ba2b0b1692c383c165c67e87723982577576a8631667f84f82b6b8ad80fb8c
 
 ## Trajectory
 
-12 events, root `7116c3f9053d51dc`.
+12 events, root `ac8f44995a65e3e6`.
 
 1. [ingest] reviewing C08: Split payment status into a lookup table, with a rollback that restores the old table
 2. [agent:contract_analyst] contract_analyst request, attempt 1

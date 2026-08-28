@@ -1,6 +1,6 @@
 # Trajectory — C01
 
-Run `C01`. 18 events. Trace root `68b4988610fa724c`.
+Run `C01`. 18 events. Trace root `0c77a526c3525d62`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.
@@ -34,8 +34,8 @@ reconstructed here.
 11. [world:rls] world rls ended as failed findings=INV-RLS-001
 12. [agent:remediation_engineer] remediation_engineer request, attempt 1
 13. [agent:remediation_engineer] remediation_engineer responded, 3120 chars
-14. [remediate] correction addresses INV-RLS-001
-15. [world:rls] running world rls on w_c01_rls-corrected
+14. [remediate] attempt 1 of 1: correction addresses INV-RLS-001
+15. [world:rls] running world rls on w_c01_corrected-1
 16. [world:rls] world rls ended as passed
 17. [decide] decision: BLOCKED
 18. [complete] C01 -> BLOCKED

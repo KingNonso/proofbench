@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C10/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C10/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `bf348411eefee157117d363ade30e08d301b13baa219b1a67494ea06ba6aa7
 
 ## Trajectory
 
-12 events, root `622ccfdb2360d64c`.
+12 events, root `1b58aec9c445c64f`.
 
 1. [ingest] reviewing C10: Compact audit history while adding a retention column
 2. [agent:contract_analyst] contract_analyst request, attempt 1

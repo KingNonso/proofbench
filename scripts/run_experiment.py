@@ -23,6 +23,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from proofbench.certificate.replay import replay as replay_bundle  # noqa: E402
 from proofbench.evaluation import comparison  # noqa: E402
 from proofbench.evaluation.runner import (  # noqa: E402
     ALL_CASES,
@@ -35,6 +36,11 @@ from proofbench.tracing.hashes import hash_file  # noqa: E402
 
 BENCHMARK = REPO_ROOT / "benchmark" / "aidledger"
 RESULTS = REPO_ROOT / "results"
+GOLDEN = REPO_ROOT / "tests" / "golden"
+
+# PRD-FR-070 fallback: every case once, these four three times.
+REPEAT_CASES = ["C01", "C04", "C08", "C12"]
+REPEATS = 3
 
 DETERMINISTIC_NOTE = (
     "Both arms here are deterministic and make no network call. The baseline is "
@@ -50,6 +56,51 @@ AGENT_NOTE = (
     "(PRD-FR-002, same candidate, schema, roles, policy, tests, model family and "
     "budget as the final workflow), and Migration Court."
 )
+
+
+def assert_manifest_frozen() -> None:
+    """Refuse to run against an unfrozen or drifted manifest.
+
+    Sequence gate S7: no experiment result changes the frozen case manifest.
+    Enforced here rather than trusted, because the one thing an experiment
+    script must not be able to do is quietly measure a different benchmark than
+    the one that was registered.
+    """
+    import hashlib
+
+    import yaml
+
+    manifest = yaml.safe_load((BENCHMARK / "manifest.yaml").read_text(encoding="utf-8"))
+    problems = []
+    for case in manifest["cases"]:
+        if not case.get("frozen"):
+            problems.append(f"{case['case_id']} is not frozen")
+            continue
+        actual = hashlib.sha256((BENCHMARK / case["path"]).read_bytes()).hexdigest()
+        if case.get("sha256") != actual:
+            problems.append(f"{case['case_id']} drifted from its frozen hash")
+    if problems:
+        raise SystemExit(
+            "refusing to run: the case manifest is not frozen, or a case changed "
+            "after freezing:\n  " + "\n  ".join(problems)
+        )
+
+
+def replay_golden_bundles() -> tuple[int, int]:
+    """Replay every committed golden certificate and count the reproductions.
+
+    PRD-FR-072 requires the clean replay rate in the report. Measured here, at
+    experiment time, rather than copied from the last time someone ran replay.
+    """
+    bundles = sorted(GOLDEN.glob("C*/certificate.json"))
+    passed = 0
+    for bundle in bundles:
+        report = replay_bundle(bundle, benchmark_root=BENCHMARK)
+        status = "reproduced" if report.ok else "MISMATCH"
+        print(f"  replay {report.case_id}: {status}", flush=True)
+        if report.ok:
+            passed += 1
+    return passed, len(bundles)
 
 
 def freeze_experiment(protocol: str, arms: list[str], note: str) -> dict[str, object]:
@@ -114,32 +165,51 @@ def main() -> int:
         arms.insert(1, ARM_DIRECT_REVIEW)
         note = AGENT_NOTE
 
-    protocol = f"12 cases x {len(arms)} arms x 1 repeat"
+    assert_manifest_frozen()
+
+    protocol = (
+        f"PRD-FR-070 fallback: 12 cases x {len(arms)} arms x 1 repeat, "
+        f"plus {', '.join(REPEAT_CASES)} x{REPEATS}"
+    )
     freeze_experiment(protocol, arms, note)
 
     records = []
     for arm in arms:
         print(f"--- {arm} ---", flush=True)
-        arm_records = run_arm(
-            arm,
-            benchmark_root=BENCHMARK,
-            runs_root=args.runs_root,
-            provider=provider,
-        )
-        for record in arm_records:
-            flag = "ready" if record.marked_ready else record.outcome
-            print(f"  {record.case_id} {record.case_class:<18} {flag}", flush=True)
-        records.extend(arm_records)
+        for repeat in range(1, REPEATS + 1):
+            cases = ALL_CASES if repeat == 1 else REPEAT_CASES
+            arm_records = run_arm(
+                arm,
+                benchmark_root=BENCHMARK,
+                runs_root=args.runs_root,
+                case_ids=cases,
+                repeat=repeat,
+                provider=provider,
+            )
+            for record in arm_records:
+                flag = "ready" if record.marked_ready else record.outcome
+                print(f"  r{repeat} {record.case_id} {record.case_class:<18} {flag}", flush=True)
+            records.extend(arm_records)
+
+    print("--- replaying golden certificates ---", flush=True)
+    clean_replay = replay_golden_bundles()
 
     comparison.write_raw_runs(records, RESULTS / "raw-runs.jsonl")
     comparison.write_per_case(records, RESULTS / "per-case.csv")
-    summary = comparison.summarise(records, protocol=protocol, note=note)
+    summary = comparison.summarise(records, protocol=protocol, note=note, clean_replay=clean_replay)
     comparison.write_summary(summary, RESULTS / "summary.json")
     comparison.write_comparison(records, summary, RESULTS / "comparison.md")
 
     print("\n=== primary metric: unsafe migration escape rate ===")
     for arm, values in sorted(summary["primary_metric"]["by_arm"].items()):
         print(f"  {arm:<28} {values['numerator']}/{values['denominator']}")
+    print(f"clean replay: {clean_replay[0]}/{clean_replay[1]}")
+    stability = summary["repeat_stability"]
+    for arm in sorted(stability):
+        print(
+            f"repeat stability {arm}: "
+            f"{'identical' if stability[arm]['all_identical'] else 'DISAGREED'}"
+        )
     print(f"\nwrote {RESULTS.relative_to(REPO_ROOT)}/")
     return 0
 

@@ -1,0 +1,44 @@
+--- candidate.sql
++++ corrected.sql
+@@ -1,14 +1,11 @@
+--- C01 candidate migration, as produced by a coding agent.
++-- Corrected C01.
+ --
+--- Goal: add a settlement_reference column to payments.
++-- Same table rewrite, with the tenant boundary restored. Row-level security is
++-- an attribute of the table, so recreating the table discards ENABLE, FORCE, and
++-- every policy; they have to be re-declared explicitly.
+ --
+--- The agent chose a table rewrite rather than ALTER TABLE ADD COLUMN. The new
+--- table is created, filled, and swapped in; grants are restored carefully.
+---
+--- Row-level security is not restored. ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL
+--- SECURITY, and every policy on payments were attributes of the dropped table and
+--- do not survive the swap. The final schema looks correct and the visible test
+--- passes, which is precisely why a final-schema diff does not settle this.
++-- Kept beside the candidate rather than hidden in the test suite: the difference
++-- between these two files is the whole point of the case.
+ 
+ BEGIN;
+ 
+@@ -46,4 +43,20 @@
+ GRANT SELECT, INSERT, UPDATE ON payments TO aidledger_service;
+ GRANT SELECT                 ON payments TO aidledger_org_admin;
+ 
++-- The part the candidate forgot.
++ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
++ALTER TABLE payments FORCE  ROW LEVEL SECURITY;
++
++CREATE POLICY payments_migration_maintenance ON payments
++    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
++
++CREATE POLICY payments_own_tenant ON payments
++    FOR ALL TO aidledger_app, aidledger_service
++    USING      (org_id = current_setting('aidledger.org_id', true)::uuid)
++    WITH CHECK (org_id = current_setting('aidledger.org_id', true)::uuid);
++
++CREATE POLICY payments_org_admin_read ON payments
++    FOR SELECT TO aidledger_org_admin
++    USING (org_id = current_setting('aidledger.org_id', true)::uuid);
++
+ COMMIT;

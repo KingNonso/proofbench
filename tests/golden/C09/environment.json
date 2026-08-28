@@ -1,0 +1,1 @@
+{"platform":"macOS-14.1-x86_64-i386-64bit","postgres_image":"postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94","python_version":"3.12.12","resolved_image_id":"sha256:43064e70a75c153a0ea5abed66b08e2981b7b43088bd59fb4b9f1a20ae4b62b0","timezone":"UTC"}

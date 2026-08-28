@@ -1,6 +1,6 @@
 # Trajectory — C02
 
-Run `C02`. 12 events. Trace root `4c7f1437425cf93f`.
+Run `C02`. 12 events. Trace root `b0c2a2f239fc1255`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.

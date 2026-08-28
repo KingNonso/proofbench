@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C06/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C06/certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `a7e2cd3cfed9ecae040457091b905ec7e6c4dc9d4afc517b40d0528bdc8a39
 
 ## Trajectory
 
-12 events, root `50ad351f5b2ac792`.
+12 events, root `ded82e57b7e662d2`.
 
 1. [ingest] reviewing C06: Backfill disbursements for settled payments without recording progress
 2. [agent:contract_analyst] contract_analyst request, attempt 1

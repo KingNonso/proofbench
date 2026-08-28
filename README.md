@@ -75,6 +75,7 @@ Honest build state. Nothing is described as working before its artifact exists
 | All twelve pre-registered cases | **Built** |
 | Paired experiment, metrics with counts, comparison report | **Built** |
 | Reproduction guide, agent disclosure, submission indexes | **Built** |
+| PRD traceability audit (`docs/prd-traceability.md`) | **Built** |
 | Live Anthropic provider adapter | **Built**, unrun — needs a key |
 | Direct-review agent baseline (PRD-FR-002) | **Built**, unrun — needs a key |
 
@@ -85,7 +86,9 @@ offline, and the paired experiment is recorded.
 ## Measured result
 
 From `results/summary.json`, which `make evaluate` recomputes from
-`results/raw-runs.jsonl`. Counts before rates.
+`results/raw-runs.jsonl`. Counts before rates. Protocol: the PRD-FR-070
+fallback — all 12 cases once per arm, plus C01, C04, C08 and C12 three times
+(40 records; every repeat identical). Clean replay rate: **12/12**.
 
 | Arm | Unsafe escape rate | Safe accepted | Authority asked | Evidence incomplete |
 | --- | --- | --- | --- | --- |

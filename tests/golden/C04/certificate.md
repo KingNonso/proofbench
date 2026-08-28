@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C04/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C04/certificate.json
 ```
 
 ---
@@ -37,7 +37,7 @@ Possible impact (not executed): 0
 
 ## Trajectory
 
-12 events, root `1cab345479194dc0`.
+12 events, root `e0592e54a1c8e3ad`.
 
 1. [ingest] reviewing C04: Backfill a missing currency and make the column NOT NULL
 2. [agent:contract_analyst] contract_analyst request, attempt 1

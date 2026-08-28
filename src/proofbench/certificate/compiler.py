@@ -142,6 +142,7 @@ def write_bundle(
     cert: MigrationChangeCertificate,
     trajectory_markdown: str,
     extra_artifacts: dict[str, bytes],
+    prompt_hashes: dict[str, str] | None = None,
 ) -> RunManifest:
     """Write every artifact in dependency order and return the manifest."""
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -152,6 +153,13 @@ def write_bundle(
         target.write_bytes(payload)
 
     (run_dir / "trajectory.md").write_text(trajectory_markdown, encoding="utf-8")
+
+    # PRD section 12 names environment.json as its own artifact. The same record
+    # also lives inside the certificate; this file exists so a reader can reach
+    # it without parsing the certificate.
+    (run_dir / "environment.json").write_bytes(
+        canonical_json(cert.environment.model_dump(mode="json"))
+    )
 
     # 1. canonical JSON, then 2. its projections.
     certificate_bytes = canonical_json(cert.model_dump(mode="json"))
@@ -178,7 +186,7 @@ def write_bundle(
         ],
         artifacts=artifacts,
         policy_hash=next(item.sha256 for item in loaded.inputs if item.field == "policy_path"),
-        prompt_hashes={},
+        prompt_hashes=prompt_hashes or {},
         trace_root_hash=cert.trajectory.trace_root_hash,
         world_semantic_digests={
             result.world: result.semantic_digest for result in cert.world_results

@@ -27,6 +27,8 @@ REQUIRED_DOCS = [
     "docs/kickoff-delta.md",
     "docs/provenance.md",
     "docs/aidledger-case-map.md",
+    "docs/prd-traceability.md",
+    "submission/video-script.md",
 ]
 
 LINK = re.compile(r"\[[^\]]+\]\(([^)#]+)\)")
@@ -115,3 +117,30 @@ def test_the_summary_is_the_only_place_metrics_are_quoted_from(repo_root):
     for arm, values in summary["primary_metric"]["by_arm"].items():
         cell = f"**{values['numerator']}/{values['denominator']}**"
         assert cell in readme, f"README does not carry {arm}'s counts as {cell}"
+
+
+def test_every_prd_requirement_appears_in_the_traceability_doc(repo_root):
+    """A requirement cannot silently drop out of the audit.
+
+    Every PRD-FR / PRD-NFR id named anywhere in the PRD must have a row in
+    docs/prd-traceability.md. The reverse direction is free: the doc quoting an
+    id the PRD does not define would simply never match anything here.
+    """
+    ids = re.compile(r"PRD-(?:FR|NFR)-\d{3}")
+    required = set(ids.findall((repo_root / "proofbench-prd.md").read_text(encoding="utf-8")))
+    covered = set(
+        ids.findall((repo_root / "docs" / "prd-traceability.md").read_text(encoding="utf-8"))
+    )
+    missing = sorted(required - covered)
+    assert missing == [], f"requirements absent from the traceability doc: {missing}"
+
+
+def test_the_summary_carries_the_prd_072_guardrails(repo_root):
+    import json
+
+    summary = json.loads((repo_root / "results" / "summary.json").read_text())
+    replay = summary["clean_replay"]
+    assert replay["denominator"] == 12, "clean replay rate must cover all golden bundles"
+    assert "repeat_stability" in summary
+    for arm, entry in summary["repeat_stability"].items():
+        assert entry["all_identical"], f"{arm} repeats disagreed: {entry['disagreements']}"

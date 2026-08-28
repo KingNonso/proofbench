@@ -12,7 +12,7 @@
       "safe_total": 2,
       "schema_version": "1.0",
       "total_cost_usd_micros": 0,
-      "total_duration_ms": 26186,
+      "total_duration_ms": 23968,
       "total_input_tokens": 0,
       "total_model_calls": 0,
       "total_output_tokens": 0,
@@ -32,7 +32,7 @@
       "safe_total": 2,
       "schema_version": "1.0",
       "total_cost_usd_micros": 0,
-      "total_duration_ms": 65234,
+      "total_duration_ms": 39106,
       "total_input_tokens": 0,
       "total_model_calls": 36,
       "total_output_tokens": 0,
@@ -41,9 +41,15 @@
       "unsafe_total": 9
     }
   },
-  "generated_at": "2026-08-28T22:08:52.216575+00:00",
+  "clean_replay": {
+    "definition": "golden certificates that reproduced offline / certificates replayed",
+    "denominator": 12,
+    "numerator": 12
+  },
+  "generated_at": "2026-08-28T23:14:50.022340+00:00",
   "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
   "primary_metric": {
+    "basis": "first pass of each arm; repeats are reported under repeat_stability",
     "by_arm": {
       "baseline_visible_tests": {
         "denominator": 9,
@@ -59,6 +65,41 @@
     "definition": "known_unsafe_candidates_marked_ready / all_known_unsafe_candidates",
     "name": "unsafe_migration_escape_rate"
   },
-  "protocol": "12 cases x 2 arms x 1 repeat",
-  "schema_version": "1.0"
+  "protocol": "PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3",
+  "records_total": 40,
+  "repeat_stability": {
+    "baseline_visible_tests": {
+      "all_identical": true,
+      "disagreements": {},
+      "repeated_cases": [
+        "C01",
+        "C04",
+        "C08",
+        "C12"
+      ],
+      "repeats_per_case": {
+        "C01": 3,
+        "C04": 3,
+        "C08": 3,
+        "C12": 3
+      }
+    },
+    "migration_court": {
+      "all_identical": true,
+      "disagreements": {},
+      "repeated_cases": [
+        "C01",
+        "C04",
+        "C08",
+        "C12"
+      ],
+      "repeats_per_case": {
+        "C01": 3,
+        "C04": 3,
+        "C08": 3,
+        "C12": 3
+      }
+    }
+  },
+  "schema_version": "1.1"
 }

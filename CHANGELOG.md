@@ -391,3 +391,46 @@ fold, which a test asserts rather than a comment claiming it.
 `submission/video-script.md` is shot by shot, with every number read from
 `results/summary.json` or a committed certificate rather than from memory.
 
+### 2026-08-29 — PRD implementation audit, and closing what it found
+
+The question was whether the PRD is completely implemented. The audit — run
+against artifacts, not memory — said: effectively yes, completely no, with eight
+confirmed gaps. Six were closable offline and are now closed; two need a
+provider key and stay honestly documented. The full requirement-by-requirement
+matrix is `docs/prd-traceability.md`, and a test now asserts every PRD-FR/NFR id
+appears in it, so a requirement cannot silently drop out of the audit.
+
+**Closed:**
+
+- **The manifest is actually frozen now (PRD §8.2).** It said `frozen: false`
+  for all twelve cases even though the experiment had run — the freezing
+  substance lived only in `experiment.json`. Each case now carries its sha256,
+  asserted equal to the hash recorded *before* the experiment ran, so freezing is
+  a statement of fact rather than a retroactive claim. `run_experiment.py`
+  refuses an unfrozen or drifted manifest, which is sequence gate S7 in code.
+- **The experiment now runs the PRD-FR-070 fallback protocol exactly:** all 12
+  once per arm plus C01/C04/C08/C12 ×3 — 40 records. The primary metric uses the
+  first pass only, keeping the unsafe denominator at the pre-registered nine;
+  repeats are a stability check, not extra chances, and all of them agreed.
+- **Clean replay rate is in the report (PRD-FR-072):** 12/12, measured at
+  experiment time by actually replaying the golden bundles, not copied from the
+  last time someone ran `make replay`.
+- **The §12 artifact contract is complete:** every bundle now writes
+  `environment.json` and, when a correction ran, `remediation.diff` — the
+  unified diff a reviewer actually reads, where the point of a minimal
+  correction is visible in how little of it there is.
+- **`manifest.prompt_hashes` is populated (PRD-FR-001)** for every agent that
+  ran, and only those — a hash for a prompt that never reached a model would
+  claim provenance for something that did not happen.
+- **Remediation attempts are configurable-bounded (PRD-FR-042):**
+  `--remediation-attempts` (1–5, default 1, the headline-demo bound). The bound
+  is fixed before the first attempt; an exhausted budget certifies the blocked
+  result with the best evidence so far.
+
+**Not closed, on purpose:** the direct-review agent baseline and E1 remain
+implemented-but-unrun. Running them needs a key; authoring their answers would
+be worse than the gap.
+
+Also: golden regeneration is a committed script (`scripts/regenerate_golden.py`)
+instead of an inline snippet that had been retyped four times.
+

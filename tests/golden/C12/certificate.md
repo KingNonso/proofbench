@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay tests/golden/C12/certificate.json
+uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C12/certificate.json
 ```
 
 ---
@@ -85,7 +85,7 @@ Semantic digest: `97d5002f381ebb2f1aca86fb5084ecb00d7b525e2a44266fad34927b876319
 
 ## Trajectory
 
-24 events, root `4ff78caba05751b3`.
+24 events, root `ecaf2d0b16a563a9`.
 
 1. [ingest] reviewing C12: Introduce a reconciliation column across a rolling deploy, with a safe rollback
 2. [agent:contract_analyst] contract_analyst request, attempt 1
