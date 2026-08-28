@@ -1,8 +1,9 @@
-# CI grows with the code. A job that verifies nothing is worse than a missing
-# one, because it looks like coverage.
+# All six jobs from implementation-plan.md section 16. Each verifies something
+# real; a job that verified nothing would be worse than a missing one, because it
+# would look like coverage.
 #
-# The replay and submission jobs from implementation-plan.md section 16 are added
-# when they have artifacts to verify.
+# No provider variable is set anywhere in this workflow, and the `replay` job
+# proves the judge path needs none.
 
 name: ci
 
@@ -54,3 +55,53 @@ jobs:
       # No provider variable is set anywhere in this workflow. The offline path
       # must never depend on one.
       - run: uv run pytest -m "integration or security or e2e"
+
+  replay:
+    name: offline replay, no provider
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      # The Anthropic SDK is an optional extra that `uv sync` does not install,
+      # so a provider call here is unavailable rather than merely unused.
+      - name: confirm the provider SDK is absent
+        run: |
+          uv run python -c "
+          import importlib.util, sys
+          if importlib.util.find_spec('anthropic') is not None:
+              sys.exit('the judge path must not have the provider SDK installed')
+          print('provider SDK absent, as required')
+          "
+      - run: docker pull "$(grep -oE 'postgres:16@sha256:[0-9a-f]{64}' compose.yaml | head -1)"
+      - run: make replay
+
+  evaluation:
+    name: metrics recompute from committed runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: make baseline
+      # Fails if summary.json does not follow from raw-runs.jsonl, so a
+      # submitted number cannot drift from the runs it came from.
+      - run: make evaluate
+
+  submission:
+    name: required documents and artifact links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: uv run pytest tests/e2e/test_submission.py -v

@@ -74,10 +74,11 @@ Honest build state. Nothing is described as working before its artifact exists
 | Bounded correction loop; human authority gate with executable rulings | **Built** |
 | All twelve pre-registered cases | **Built** |
 | Paired experiment, metrics with counts, comparison report | **Built** |
+| Reproduction guide, agent disclosure, submission indexes | **Built** |
 | Live Anthropic provider adapter | **Built**, unrun — needs a key |
 | Direct-review agent baseline (PRD-FR-002) | **Built**, unrun — needs a key |
 
-**Release gates R1 through R4 are closed.** All twelve cases reach their
+**Release gates R1 through R5 are closed.** All twelve cases reach their
 registered state with no network call, all twelve golden certificates reproduce
 offline, and the paired experiment is recorded.
 
@@ -200,11 +201,33 @@ never counted as safe in any metric.
 
 ## Hot take
 
-*Hypothesis, not yet a finding.* Under PRD §16 this may be stated as an observation only once
-a recorded unsafe case passes its visible and final-schema checks and still fails a timeline
-world.
+> **Migration correctness is a property of the deployment timeline, not the final
+> schema.**
 
-> Migration correctness is a property of the deployment timeline, not the final schema.
+This began as a hypothesis. Under PRD §16 it may be stated as a finding once a
+recorded unsafe case passes its visible and final-schema checks and still fails a
+timeline world. Three do:
+
+| Case | Final schema | Visible test | Timeline world |
+| --- | --- | --- | --- |
+| C05 | exactly as intended | passes | `rolling` fails — `INV-COMPAT-001`, the version still deploying writes a column that no longer exists |
+| C06 | exactly as intended | passes | `interruption` fails — `INV-IDEM-001`, a resumed backfill pays every beneficiary a second time |
+| C08 | exactly as intended | passes | `rollback` fails — `INV-ROLLBACK-001`, the rollback restores a snapshot and discards everything committed since |
+
+Each of those migrations is correct at every instant you can photograph. They are
+wrong only across an interval — a rollout, an interruption, a rollback — and no
+amount of looking at the end state reveals it. A reviewer with the diff and green
+CI has already seen everything a schema can tell them.
+
+**The practical lesson.** When a check has to run *over* an interval rather than
+*at* an instant, find the fact the database can state about that interval and
+check it, rather than timing it. This project learned that the hard way: the lock
+world originally held a conflicting lock and asserted a timeout, which failed the
+*correct* migration too, because every `ALTER TABLE` blocks behind an open reader.
+The fact that actually distinguishes a two-second rewrite from a metadata-only
+change is `pg_relation_filenode` — identical on every machine, independent of how
+large the fixture happens to be. The stopwatch was measuring the machine; the
+filenode measures the migration.
 
 ## License
 

@@ -318,3 +318,41 @@ contention design (failed the correct migration), folding a passing correction
 into the decision (made the primary metric meaningless), and an unreachable
 `Ruling` validator.
 
+### 2026-08-28 — Release gate R5 closed: reproduction from a clean checkout
+
+264 tests pass. The five judge commands were run from a fresh `git clone` with
+provider variables unset, and `REPRODUCTION.md` carries the measured timings from
+that run rather than estimates: **194 seconds end to end**, of which `make test`
+is 141 s and `make replay` is 41 s.
+
+**The offline guarantee is structural, not merely untriggered.** The Anthropic
+SDK is an optional extra that `make bootstrap` does not install, and nothing on
+the judge path imports `providers.live`. A provider call on that path is
+*unavailable*, not just unused, and the `replay` CI job asserts the SDK is absent
+before it runs. That is a stronger claim than "we did not set a key", and it is
+the one worth making.
+
+**The hot take is now a finding rather than a hypothesis.** PRD §16 unlocks it
+once a recorded unsafe case passes its visible and final-schema checks and still
+fails a timeline world. Three do: C05 (`rolling`), C06 (`interruption`), C08
+(`rollback`). Each is correct at every instant you can photograph and wrong only
+across an interval. The README states the evidence rather than the slogan.
+
+The practical lesson recorded with it comes from this project's own mistake: when
+a check has to run *over* an interval rather than *at* an instant, find the fact
+the database can state about that interval instead of timing it. The lock world
+originally timed contention and failed the correct migration; `pg_relation_filenode`
+states the fact directly and is identical on every machine.
+
+**Submission checks are tests, not a checklist.** `tests/e2e/test_submission.py`
+asserts every required document exists and is not a stub, that every local link
+in the reader-facing documents resolves, that all four agent prompts ship (brief
+deliverable 01), that no credential-shaped text reaches a committed artifact
+(ground rule 08), that no oracle content leaks into a run bundle, and that the
+counts quoted in the README match `results/summary.json` exactly. The last one is
+the guard against the most likely error in a submission: a number in prose
+drifting from the number in the evidence.
+
+CI now runs all six jobs from the technical plan: static, unit, docker,
+replay, evaluation, and submission.
+
