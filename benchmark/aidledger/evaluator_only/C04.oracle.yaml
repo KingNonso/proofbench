@@ -1,0 +1,20 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C04
+case_class: authority_required
+expected_initial_state: DOMAIN_RULING_REQUIRED
+
+# Nothing is expected to fail before a ruling exists. C04 is not an unsafe case
+# and must not be counted in the unsafe-escape denominator: reaching
+# DOMAIN_RULING_REQUIRED is the correct outcome, not a near miss.
+expected_blocking_invariant_ids: []
+expected_blast_radius_assertions: []
+
+rationale: >
+  The candidate backfills a missing currency with USD and adds NOT NULL. Every
+  amount is preserved and every constraint is satisfied, so no deterministic
+  check can fail. Whether those payments were in US dollars was never recorded
+  anywhere, so the question belongs to a person with authority over the
+  historical records. After a ruling the case becomes decidable: a ruling of USD
+  makes the candidate correct, a ruling of per-organisation currency makes it
+  BLOCKED on INV-MONEY-002.

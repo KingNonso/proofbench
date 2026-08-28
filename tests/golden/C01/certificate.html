@@ -109,6 +109,19 @@
     </tr>
   </table>
 
+  <h2>Proposed correction</h2>
+  <p class="note">
+    Proposed after the candidate was blocked. It does <strong>not</strong> change the
+    decision above, which is about the candidate as submitted.
+  </p>
+  <table>
+    <tr><th>Addresses</th><td><code>INV-RLS-001</code></td></tr>
+    <tr><th>Verified by clean rerun</th>
+        <td class="pass">yes</td></tr>
+    <tr><th>Regression check</th><td>settlement_reference still exists, all five payments survive, the disbursements foreign key is intact, and every tenant-isolation probe passes.</td></tr>
+    <tr><th>Rationale</th><td>Row-level security is an attribute of the table, so the rewrite discarded ENABLE, FORCE and every policy on payments. The correction keeps the table rewrite and the new column, and re-declares the security attributes and the three policies that applied before. Nothing else changes.</td></tr>
+  </table>
+
   <h2>Worlds</h2>
   <h3>rls — <span class="fail">failed</span></h3>
   <p class="note">
@@ -124,11 +137,11 @@
 
   <h2>Trajectory</h2>
   <p class="note">
-    6 events, root <code>4aa03a0650530f27</code>.
+    18 events, root <code>8c96eedd5d8547fd</code>.
     Observable actions only; no hidden reasoning is recorded.
   </p>
   <ol class="timeline">
-<li>[ingest] reviewing C01: Recreate payments to add a settlement reference</li><li>[visible-tests] 1/1 visible tests passed</li><li>[world:rls] running world rls on w_c01_rls</li><li>[world:rls] world rls ended as failed findings=INV-RLS-001</li><li>[decide] decision: BLOCKED</li><li>[complete] C01 -> BLOCKED</li>  </ol>
+<li>[ingest] reviewing C01: Recreate payments to add a settlement reference</li><li>[agent:contract_analyst] contract_analyst request, attempt 1</li><li>[agent:contract_analyst] contract_analyst responded, 3219 chars</li><li>[contract] Recreating a table preserves the row-level security policies that applied to the original table.</li><li>[contract] The grants restored by the migration are sufficient to preserve the tenant boundary.</li><li>[agent:test_designer] test_designer request, attempt 1</li><li>[agent:test_designer] test_designer responded, 809 chars</li><li>[design-worlds] plan selects rls</li><li>[visible-tests] 1/1 visible tests passed</li><li>[world:rls] running world rls on w_c01_rls</li><li>[world:rls] world rls ended as failed findings=INV-RLS-001</li><li>[agent:remediation_engineer] remediation_engineer request, attempt 1</li><li>[agent:remediation_engineer] remediation_engineer responded, 3120 chars</li><li>[remediate] correction addresses INV-RLS-001</li><li>[world:rls] running world rls on w_c01_rls-corrected</li><li>[world:rls] world rls ended as passed</li><li>[decide] decision: BLOCKED</li><li>[complete] C01 -> BLOCKED</li>  </ol>
 
   <h2>Environment</h2>
   <table>

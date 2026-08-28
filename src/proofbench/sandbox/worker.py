@@ -20,13 +20,14 @@ from typing import Any
 from proofbench.domain.evidence import EvidenceFailure, WorldResult, WorldStatus
 from proofbench.worlds._testing import TESTING_WORLDS
 from proofbench.worlds.base import WorldRequest
+from proofbench.worlds.money import MoneyWorld
 from proofbench.worlds.rls import RlsWorld
 
 # Worlds are looked up by name so the child never receives a callable to run.
 # The testing worlds exercise the crash, hang, and malformed-result paths in a
 # real spawned child. No case can select one: CaseSpec validates required
 # worlds against the WorldName enum, which contains none of these names.
-WORLDS = {RlsWorld.name: RlsWorld, **TESTING_WORLDS}
+WORLDS = {RlsWorld.name: RlsWorld, MoneyWorld.name: MoneyWorld, **TESTING_WORLDS}
 
 # Grace period after the deadline before the child is killed outright.
 TERMINATE_GRACE_SECONDS = 5

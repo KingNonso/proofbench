@@ -1,0 +1,46 @@
+schema_version: "1.0"
+case_id: C04
+title: Backfill a missing currency and make the column NOT NULL
+
+description: >
+  A coding agent was asked to make payments.currency_code NOT NULL. It filled the
+  rows that had no currency with USD. Every amount is preserved and every
+  constraint is satisfied, so the migration passes anything the database can
+  check. Whether those payments were actually in US dollars is a fact the
+  database never recorded.
+
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C04/candidate.sql
+  rollback_path: null
+
+visible_tests:
+  - cases/C04/visible_tests/001_currency_not_null.sql
+
+policy_path: cases/C04/policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - rls
+    - money
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000

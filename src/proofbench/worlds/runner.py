@@ -17,12 +17,14 @@ from psycopg import sql
 
 from proofbench.domain.case import ProbeOutcome, RlsProbeSpec
 from proofbench.domain.evidence import CheckResult, CheckStatus, WorldResult
+from proofbench.domain.ruling import CompiledRuling
 from proofbench.domain.trace import EventType
+from proofbench.errors import EvidenceIncompleteError
 from proofbench.intake.loader import LoadedCase
 from proofbench.sandbox.postgres import MIGRATION_ROLE, PostgresSandbox
 from proofbench.sandbox.worker import run_world
 from proofbench.tracing.writer import TraceWriter
-from proofbench.worlds.base import ProbeTarget, WorldRequest
+from proofbench.worlds.base import PaymentSnapshotRow, ProbeTarget, WorldRequest
 
 
 def prepare_world_database(sandbox: PostgresSandbox, loaded: LoadedCase, world: str) -> str:
@@ -100,6 +102,43 @@ def build_targets(
     return targets
 
 
+def snapshot_payments(sandbox: PostgresSandbox, database: str) -> list[PaymentSnapshotRow]:
+    """Capture payments before the candidate applies.
+
+    Taken by the parent under an administrative connection, because a world that
+    only sees the after state can tell that a value is USD but not whether the
+    migration is what made it so.
+    """
+    with sandbox.connect(database) as conn:
+        rows = conn.execute(
+            "SELECT payment_id, org_id, currency_code, amount_minor FROM payments ORDER BY 1"
+        ).fetchall()
+    return [
+        PaymentSnapshotRow(
+            payment_id=str(row[0]),
+            org_id=str(row[1]),
+            currency_code=None if row[2] is None else str(row[2]).strip(),
+            amount_minor=int(row[3]) if isinstance(row[3], int) else 0,
+        )
+        for row in rows
+    ]
+
+
+def _credentials_for(
+    sandbox: PostgresSandbox, world: str, targets: list[ProbeTarget]
+) -> dict[str, str]:
+    """The narrowest credential set the world can work with.
+
+    Never the administrator. The money world needs to read every tenant's rows,
+    which the migration role can do through its maintenance policies while
+    holding no cluster capability at all.
+    """
+    roles = {target.probe.role for target in targets}
+    if world == "money":
+        roles = {MIGRATION_ROLE}
+    return {role: sandbox.credentials.role_passwords[role] for role in sorted(roles)}
+
+
 def run_required_worlds(
     sandbox: PostgresSandbox,
     loaded: LoadedCase,
@@ -107,6 +146,8 @@ def run_required_worlds(
     run_id: str,
     trace: TraceWriter | None = None,
     database_by_world: dict[str, str] | None = None,
+    compiled_ruling: CompiledRuling | None = None,
+    pre_state: list[PaymentSnapshotRow] | None = None,
 ) -> list[WorldResult]:
     """Run every world the case declares required, each on its own database."""
     results: list[WorldResult] = []
@@ -116,6 +157,14 @@ def run_required_worlds(
         database = (database_by_world or {}).get(name) or prepare_world_database(
             sandbox, loaded, name
         )
+        if name == "money" and not (pre_state or []):
+            # A money world with no before state cannot attribute a change to
+            # the migration, and would report a clean pass for a value it never
+            # saw move.
+            raise EvidenceIncompleteError(
+                "money world requires a pre-migration snapshot",
+                detail={"world": name, "case_id": loaded.case.case_id},
+            )
 
         targets = build_targets(sandbox, database, list(loaded.policy.rls_probes))
         request = WorldRequest(
@@ -126,11 +175,10 @@ def run_required_worlds(
             database=database,
             # Only the roles this world probes. No administrative credential
             # crosses into the child.
-            credentials={
-                role: sandbox.credentials.role_passwords[role]
-                for role in sorted({target.probe.role for target in targets})
-            },
+            credentials=_credentials_for(sandbox, name, targets),
             targets=targets,
+            compiled_ruling=compiled_ruling,
+            pre_state=pre_state or [],
             deadline_seconds=loaded.case.budgets.world_timeout_seconds,
         )
 

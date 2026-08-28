@@ -49,6 +49,7 @@ def bundle(tmp_path, c01_case):
         world_results=results,
         visible_tests=[factories.check(status=factories.CheckStatus.PASSED)],
         trajectory=trajectory,
+        correction=None,
         resolved_image_id="sha256:abc",
         run_kind="migration_court",
         provider_mode="none",

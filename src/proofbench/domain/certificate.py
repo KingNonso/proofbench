@@ -37,6 +37,23 @@ class FirstScreen(StrictModel):
     replay_command: str
 
 
+class CorrectionRecord(StrictModel):
+    """A proposed correction and how it fared on a clean rerun.
+
+    Deliberately not part of the decision. The decision is about the candidate
+    that was submitted; a correction that passes is useful evidence for the
+    author, not a reason to re-grade the original. Folding it in would let every
+    unsafe candidate reach READY_FOR_REVIEW and would make the escape-rate metric
+    measure nothing at all.
+    """
+
+    addresses_invariants: list[str] = Field(default_factory=list)
+    rationale: str
+    regression_check: str
+    verified: bool
+    world_results: list[WorldResult] = Field(default_factory=list)
+
+
 class EnvironmentRecord(StrictModel):
     """What this run actually executed on."""
 
@@ -108,6 +125,7 @@ class MigrationChangeCertificate(StrictModel):
     decision: DecisionRecord
     world_results: list[WorldResult] = Field(default_factory=list)
     visible_tests: list[CheckResult] = Field(default_factory=list)
+    correction: CorrectionRecord | None = None
     trajectory: TrajectorySummary
     environment: EnvironmentRecord
     inputs_digest: str
@@ -138,6 +156,7 @@ class MigrationChangeCertificate(StrictModel):
                 for item in self.decision.confirmed
             ],
             "worlds": {result.world: result.semantic_digest for result in self.world_results},
+            "correction_verified": None if self.correction is None else self.correction.verified,
             "visible_tests": [
                 {"check_id": check.check_id, "status": check.status.value}
                 for check in self.visible_tests

@@ -24,6 +24,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from proofbench.config import POSTGRES_IMAGE, TIMEZONE
 from proofbench.domain.certificate import (
     ArtifactHash,
+    CorrectionRecord,
     EnvironmentRecord,
     FirstScreen,
     MigrationChangeCertificate,
@@ -74,6 +75,7 @@ def build_certificate(
     world_results: list[WorldResult],
     visible_tests: list[CheckResult],
     trajectory: TrajectorySummary,
+    correction: CorrectionRecord | None,
     resolved_image_id: str | None,
     run_kind: str,
     provider_mode: str,
@@ -100,6 +102,7 @@ def build_certificate(
         decision=decision,
         world_results=world_results,
         visible_tests=visible_tests,
+        correction=correction,
         trajectory=trajectory,
         environment=_environment(resolved_image_id),
         inputs_digest=loaded.inputs_digest,

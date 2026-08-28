@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C01",
+  "rationale": "The contract's blocking assumption is that recreating a table preserves its row-level security. Nothing in the candidate supports that, and the final schema cannot show it either way. Only executing the role-by-tenant matrix against the migrated database settles it.",
+  "entries": [
+    {
+      "world": "rls",
+      "threatened_invariants": [
+        "INV-RLS-001",
+        "INV-RLS-002",
+        "INV-RLS-003"
+      ],
+      "rationale": "Exercises every declared role against its own and another organisation, in both directions, after the table rewrite.",
+      "parameters": {},
+      "expected_evidence": "For each probe: the rows a role actually reached, and the SQLSTATE when it was refused.",
+      "timeout_seconds": 120
+    }
+  ]
+}

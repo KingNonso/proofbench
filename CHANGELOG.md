@@ -173,3 +173,62 @@ Gate R1 evidence: `tests/golden/C01/` holds the committed bundle, `make replay`
 reproduces it with provider variables unset, and the first HTML viewport carries
 all seven PRD-FR-060 fields including the replay command.
 
+### 2026-08-28 — Release gate R2 closed: three agents, bounded correction, human authority
+
+211 tests pass. C01 and C04 both run end to end with no network call.
+
+**The agents cannot decide anything, and that is enforced by the schemas.**
+`MigrationContract` has no field for a verdict, `WorldPlan` has no field that
+could carry a command, and `RemediationPlan` has no field claiming success. The
+separation between the three agents is enforced by per-actor capabilities in the
+tool router rather than by instruction: the Contract Analyst cannot execute SQL,
+the Test Designer cannot read arbitrary files, and the Remediation Engineer
+cannot search the tree. A denied tool call returns a recorded refusal rather than
+an empty result, because an agent that cannot tell "denied" from "found nothing"
+will build a contract on an absence it never knew about.
+
+**Schema repair stops after one attempt.** A second invalid response ends the
+stage as `EVIDENCE_INCOMPLETE` with both responses preserved. Retrying until
+something parses selects for parseability, not correctness.
+
+**Fixed: a correction was flipping the decision to READY_FOR_REVIEW.** The
+decision is about the candidate that was submitted. Folding a passing correction
+into it would let every unsafe candidate reach `READY_FOR_REVIEW` and would make
+the PRD-FR-071 escape-rate metric measure nothing at all. The correction is now
+its own certificate section, clearly marked as not changing the decision.
+
+**Fixed: deferred worlds were reported as missing evidence.** When an authority
+question is open the worlds it governs do not run, because running them would
+measure an assumption and report it as a fact. The decision policy read "no world
+results" as an evidence failure, so C04 returned `EVIDENCE_INCOMPLETE` instead of
+`DOMAIN_RULING_REQUIRED`. The "nothing ran" rule now sits below the authority
+check, matching PRD-FR-040 precedence exactly.
+
+**Removed a validator that could never fire.** `Ruling` had a word-list check
+rejecting "approved" and similar, but `min_length=20` on `ruling_text` rejected
+every one of those first. What actually makes a ruling a ruling is structural:
+scope, determination column, determination value and justification are all
+required, so a signature cannot be recorded because there is nowhere to put one.
+Dead validation is worse than none — it looks like protection.
+
+**The authority gate is a question, not a veto.** Two rulings on the same C04
+question reach opposite states: `currency-uniformly-usd.yaml` lets the candidate
+through, `currency-per-organisation.yaml` blocks it on `INV-MONEY-002`. Neither
+can override a deterministic failure, because decision precedence puts a
+confirmed blocking finding above any authority question.
+
+**Replay now mirrors the recorded run.** It re-runs the worlds that actually
+produced results, re-applies the recorded ruling, and re-asks the recorded
+authority question. It previously assumed every run executed the RLS world, which
+made C04 — a run that deliberately executed none — fail to reproduce. A replay
+that runs a different plan is comparing two experiments and calling agreement a
+reproduction.
+
+**Caught by our own defence-in-depth test.** The string grep behind the AST
+oracle check found two product modules spelling `evaluator_only` as a literal
+instead of importing `ORACLE_DIR_NAME`. Both now use the constant.
+
+Gate R2 evidence: `tests/golden/C01` carries `contract.json`, `world-plan.json`
+and `remediation.json`; `tests/golden/C04` carries `ruling-packet.json` and
+`ruling-packet.md`.
+

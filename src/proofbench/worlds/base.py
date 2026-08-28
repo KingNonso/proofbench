@@ -15,6 +15,7 @@ from pydantic import Field
 from proofbench.domain.base import StrictModel
 from proofbench.domain.case import RlsProbeSpec
 from proofbench.domain.evidence import WorldResult
+from proofbench.domain.ruling import CompiledRuling
 
 
 class ProbeTarget(StrictModel):
@@ -30,6 +31,20 @@ class ProbeTarget(StrictModel):
     target_row_count: int = Field(ge=0)
 
 
+class PaymentSnapshotRow(StrictModel):
+    """One row as it stood *before* the candidate applied.
+
+    Measured by the parent under an administrative connection. Without a before
+    state a money world can see that a value is now USD but not whether the
+    migration is what made it so, nor whether it touched rows outside its scope.
+    """
+
+    payment_id: str
+    org_id: str
+    currency_code: str | None
+    amount_minor: int
+
+
 class WorldRequest(StrictModel):
     """Everything a world needs, and nothing it does not."""
 
@@ -41,6 +56,8 @@ class WorldRequest(StrictModel):
     # Role name to password. Only the roles this world probes; no admin role.
     credentials: dict[str, str]
     targets: list[ProbeTarget] = Field(default_factory=list)
+    compiled_ruling: CompiledRuling | None = None
+    pre_state: list[PaymentSnapshotRow] = Field(default_factory=list)
     deadline_seconds: int = Field(gt=0)
 
     def dsn(self, user: str) -> str:

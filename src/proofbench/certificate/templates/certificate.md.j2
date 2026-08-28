@@ -47,6 +47,21 @@ Possible impact (not executed): {{ cert.decision.possible | length }}
 - `{{ check.check_id }}` — **{{ check.status }}**{% if check.sqlstate %} (SQLSTATE {{ check.sqlstate }}){% endif %}
 {% endfor %}
 
+{% if cert.correction %}
+## Proposed correction
+
+A correction was proposed after the candidate was blocked. It does **not** change
+the decision above, which is about the candidate as submitted.
+
+| | |
+| --- | --- |
+| Addresses | {{ cert.correction.addresses_invariants | join(", ") }} |
+| Verified by clean rerun | {{ "yes" if cert.correction.verified else "no" }} |
+| Regression check | {{ cert.correction.regression_check }} |
+
+{{ cert.correction.rationale }}
+
+{% endif %}
 ## Worlds
 
 {% for result in cert.world_results %}

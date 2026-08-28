@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C04",
+  "summary": "The candidate sets currency_code to 'USD' for every payment where it is null, then makes the column NOT NULL. Amounts are untouched and every constraint is satisfied. I could not find anything in the schema, the constraints, the audit history, or the fixtures that records what currency those payments were in.",
+  "facts": [
+    {
+      "statement": "The migration updates payments.currency_code to 'USD' wherever it is null.",
+      "evidence_ref": "cases/C04/candidate.sql: UPDATE payments SET currency_code = 'USD' WHERE currency_code IS NULL"
+    },
+    {
+      "statement": "The migration then adds a NOT NULL constraint to payments.currency_code.",
+      "evidence_ref": "cases/C04/candidate.sql: ALTER COLUMN currency_code SET NOT NULL"
+    },
+    {
+      "statement": "No amount_minor value is modified by the migration.",
+      "evidence_ref": "cases/C04/candidate.sql: the only UPDATE touches currency_code"
+    },
+    {
+      "statement": "The currencies table declares USD, KES and JPY, so more than one currency was in use.",
+      "evidence_ref": "fixtures/001_seed.sql: INSERT INTO currencies"
+    },
+    {
+      "statement": "At least one organisation has payments denominated in KES alongside a payment with no currency.",
+      "evidence_ref": "fixtures/001_seed.sql: payments rows for org 22222222-2222-4222-8222-222222222222"
+    },
+    {
+      "statement": "payments.currency_code has no default and no check constraint that would imply USD.",
+      "evidence_ref": "schema/001_core.sql: payments definition"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Every payment recorded before the currency field existed was denominated in USD.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "schema/001_core.sql",
+        "fixtures/001_seed.sql",
+        "cases/C04/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-MONEY-002",
+      "description": "A currency backfill matches the recorded domain ruling in value and scope.",
+      "blocking_class": "blocking",
+      "executable_check": "Snapshot currency_code per payment before the migration, then confirm every row in the ruling's scope carries the ruled value and no row outside it changed."
+    },
+    {
+      "id": "INV-MONEY-001",
+      "description": "Minor-unit values are exact; no conversion may change a total.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare amount_minor per payment before and after in integer minor units."
+    },
+    {
+      "id": "INV-RLS-001",
+      "description": "No session may read rows belonging to an organisation other than its own.",
+      "blocking_class": "blocking",
+      "executable_check": "Run the declared role-by-tenant access matrix after the migration."
+    }
+  ],
+  "unknowns": [
+    {
+      "question": "Whether an external ledger records the currency of pre-2024 payments.",
+      "owner": "finance operations",
+      "materiality": "material"
+    }
+  ],
+  "authority_questions": [
+    {
+      "question_id": "AQ-001",
+      "question": "Were all payments recorded before the currency field existed denominated in USD, or must their currency be sourced per organisation?",
+      "reviewer_qualification": "Finance operations owner with authority over historical payment records",
+      "affected_invariants": [
+        "INV-MONEY-002"
+      ],
+      "materiality": "blocking"
+    }
+  ]
+}

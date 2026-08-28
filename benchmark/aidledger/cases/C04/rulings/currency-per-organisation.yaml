@@ -1,0 +1,35 @@
+# A recorded domain ruling (PRD-FR-021).
+#
+# This is the shape a qualified reviewer's answer takes. It is not an approval:
+# there is no field here that means "looks fine". A ruling names the rows it
+# covers and the value it determines, because it has to compile into a check.
+#
+# It also cannot rescue a migration that failed a deterministic check. Decision
+# precedence puts a confirmed blocking finding above any authority question.
+
+schema_version: "1.0"
+ruling_id: R-001
+case_id: C04
+question_id: AQ-001
+
+reviewer_role: Finance operations owner
+reviewer_qualification: Owner of historical payment records for all organisations
+
+ruling_text: >
+  Payments recorded before the currency field was introduced were denominated in
+  the organisation's local settlement currency, not uniformly in USD. Northwind
+  Relief settled in USD; Southgate Aid settled in KES. A blanket USD backfill is
+  not correct and must not be applied.
+
+scope_table: payments
+scope_predicate: currency_code IS NULL
+determination_column: currency_code
+determination_value: KES
+
+justification: >
+  Confirmed against the 2023 settlement ledger held by finance operations, which
+  records the settlement currency per organisation for the period before the
+  currency field existed. Southgate Aid has no USD settlements in that period.
+
+recorded_at: 2026-08-28T21:30:00Z
+version: 1

@@ -94,6 +94,21 @@
     {% endfor %}
   </table>
 
+  {% if cert.correction %}
+  <h2>Proposed correction</h2>
+  <p class="note">
+    Proposed after the candidate was blocked. It does <strong>not</strong> change the
+    decision above, which is about the candidate as submitted.
+  </p>
+  <table>
+    <tr><th>Addresses</th><td><code>{{ cert.correction.addresses_invariants | join(", ") }}</code></td></tr>
+    <tr><th>Verified by clean rerun</th>
+        <td class="{{ 'pass' if cert.correction.verified else 'fail' }}">{{ "yes" if cert.correction.verified else "no" }}</td></tr>
+    <tr><th>Regression check</th><td>{{ cert.correction.regression_check }}</td></tr>
+    <tr><th>Rationale</th><td>{{ cert.correction.rationale }}</td></tr>
+  </table>
+  {% endif %}
+
   <h2>Worlds</h2>
   {% for result in cert.world_results %}
   <h3>{{ result.world }} — <span class="{{ 'pass' if result.status == 'passed' else 'fail' }}">{{ result.status }}</span></h3>

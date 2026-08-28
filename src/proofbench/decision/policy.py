@@ -8,7 +8,8 @@ Precedence is ordered, and the order is the point:
 1. an evidence failure, world error, or timeout  -> EVIDENCE_INCOMPLETE
 2. a confirmed blocking finding                  -> BLOCKED
 3. an unresolved material authority question     -> DOMAIN_RULING_REQUIRED
-4. otherwise                                     -> READY_FOR_REVIEW
+4. no world ran at all, and none was deferred    -> EVIDENCE_INCOMPLETE
+5. otherwise                                     -> READY_FOR_REVIEW
 
 Evidence completeness outranks a blocking failure deliberately. If a run could
 not produce trustworthy evidence, its blocking findings are not trustworthy
@@ -55,7 +56,7 @@ def decide(
     world_failures = [failure for result in world_results for failure in result.failures]
     all_failures = [*evidence_failures, *world_failures]
 
-    if incomplete or all_failures or not world_results:
+    if incomplete or all_failures:
         for result in incomplete:
             reasons.append(f"world {result.world} ended as {result.status.value}")
             decisive.extend(
@@ -64,8 +65,6 @@ def decide(
         for failure in all_failures:
             reasons.append(f"{failure.stage}: {failure.reason}")
             reasons.extend(failure.causes)
-        if not world_results:
-            reasons.append("no world produced a result")
         return _record(
             ExternalState.EVIDENCE_INCOMPLETE, reasons, decisive, [], evidence_complete=False
         )
@@ -91,11 +90,21 @@ def decide(
         )
 
     if authority_questions:
+        # Worlds deferred pending a ruling are not missing evidence. Deferring
+        # them is the correct behaviour: running a world whose invariant the open
+        # question governs would measure an assumption and report it as a fact.
         reasons.extend(
             f"unresolved authority question: {question}" for question in authority_questions
         )
         return _record(
             ExternalState.DOMAIN_RULING_REQUIRED, reasons, decisive, [], evidence_complete=True
+        )
+
+    if not world_results:
+        # Nothing ran and nobody asked for a ruling, so nothing is known.
+        reasons.append("no world produced a result")
+        return _record(
+            ExternalState.EVIDENCE_INCOMPLETE, reasons, decisive, [], evidence_complete=False
         )
 
     reasons.extend(f"world {result.world} passed" for result in world_results)

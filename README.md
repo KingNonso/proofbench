@@ -65,25 +65,36 @@ Honest build state. Nothing is described as working before its artifact exists
 | --- | --- |
 | Phase 0 evidence: brief delta, provenance, 12-case map | **Built** |
 | Project toolchain, standards, CI (static, unit, docker) | **Built** |
-| Typed intake: case and policy schemas, contained path resolution, input hashing | **Built** |
+| Typed intake: case and policy schemas, contained paths, input hashing | **Built** |
 | Disposable PostgreSQL sandbox, restricted migration role, database-per-world | **Built** |
-| Tenant isolation world, decision policy, confirmed blast radius | **Built** |
-| Trace writer, hash chain, validator, redaction, readable trajectory | **Built** |
-| Migration Change Certificate in JSON, Markdown, and HTML | **Built** |
-| Manifest, bundle root, and offline replay | **Built** |
+| Tenant isolation world; money world (currency scope) | **Built** |
+| Decision policy, confirmed blast radius, trace and validator | **Built** |
+| Certificate in JSON, Markdown, HTML; manifest, bundle root, offline replay | **Built** |
 | Oracle process boundary and `OracleSpec` | **Built** |
-| `case validate`, `review`, `replay`, `trace validate`, `certificate verify` | **Built** |
-| Money, rolling, interruption, rollback, lock, and audit worlds | Not built |
-| Cases C02 through C12 | Not built |
-| Three product agents and live provider | Not built |
-| Human authority path (C04 ruling packet) | Not built |
+| Three agents behind a mediated tool router, with `FakeProvider` | **Built** |
+| Bounded correction loop (one attempt, clean rerun) | **Built** |
+| Human authority gate: ruling packet, executable ruling (C04) | **Built** |
+| Live model provider | Not built |
+| Rolling, interruption, rollback, lock, and audit worlds | Not built |
+| Cases C02, C03, C05 through C12 | Not built |
 | Fair direct-review baseline and paired evaluation | Not built |
 
-**Release gate R1 is closed.** C01 goes from `case.yaml` to `BLOCKED` with no model
-call: the visible schema test passes, the tenant isolation world observes two
-Southgate payment rows from a Northwind session, the confirmed blast radius names
-role, tenant, operation and row keys, and the certificate replays from a clean
-database. `make replay` reproduces the committed golden bundle offline.
+**Release gates R1 and R2 are closed.**
+
+*C01* goes from `case.yaml` to `BLOCKED` with no network call. The visible schema
+test passes; the tenant isolation world observes two Southgate payment rows from
+a Northwind session; the blast radius names role, tenant, operation and row keys.
+The Remediation Engineer proposes a correction that passes the same world on a
+clean database — and the decision stays `BLOCKED`, because the decision is about
+the candidate that was submitted.
+
+*C04* returns `DOMAIN_RULING_REQUIRED` with a ruling packet: the exact question,
+the two rows it affects, both readings, and what each costs if wrong. The gate is
+a question rather than a veto — a ruling of "USD" lets the candidate through, a
+ruling of "per organisation" blocks it on `INV-MONEY-002`. Neither can override a
+failure the database already demonstrated.
+
+`make replay` reproduces both committed golden bundles offline.
 
 `make baseline` and `make evaluate` still exit non-zero with `EVIDENCE_NOT_BUILT`
 until there is committed evidence for them to verify. That is deliberate: a
@@ -110,6 +121,9 @@ Review a candidate and read its certificate:
 ```bash
 uv run proofbench case validate benchmark/aidledger/cases/C01/case.yaml
 uv run proofbench review benchmark/aidledger/cases/C01/case.yaml
+uv run proofbench review benchmark/aidledger/cases/C04/case.yaml
+uv run proofbench review benchmark/aidledger/cases/C04/case.yaml \
+  --ruling benchmark/aidledger/cases/C04/rulings/currency-per-organisation.yaml
 uv run proofbench replay tests/golden/C01/certificate.json
 uv run proofbench certificate verify tests/golden/C01/certificate.json
 uv run proofbench trace validate tests/golden/C01/trajectory.jsonl
@@ -134,7 +148,8 @@ uv run proofbench trace validate tests/golden/C01/trajectory.jsonl
 | `benchmark/aidledger/` | Synthetic fixture and the 12 frozen cases |
 | `benchmark/aidledger/evaluator_only/` | Oracle. Never readable by product code |
 | `tests/` | unit, integration, security, e2e |
-| `tests/golden/C01/` | Committed golden bundle that `make replay` reproduces |
+| `tests/golden/` | Committed golden bundles that `make replay` reproduces |
+| `src/proofbench/agents/prompts/` | The instructions that shape each agent |
 
 ---
 

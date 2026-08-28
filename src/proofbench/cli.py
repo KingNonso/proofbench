@@ -23,6 +23,7 @@ from proofbench.domain.decision import ExternalState
 from proofbench.errors import ExitCode, ProofBenchError
 from proofbench.intake.loader import load_case
 from proofbench.tracing.validator import validate_trace
+from proofbench.workflow.authority import load_ruling
 from proofbench.workflow.review import load_certificate, review_case
 
 app = typer.Typer(
@@ -91,13 +92,36 @@ def review(
     runs_root: Annotated[
         Path, typer.Option("--runs-root", help="Where to write the run bundle.")
     ] = DEFAULT_RUNS_ROOT,
+    agents: Annotated[
+        bool,
+        typer.Option(
+            "--agents/--no-agents",
+            help="Run the three agents. Off leaves the deterministic path unchanged.",
+        ),
+    ] = True,
+    remediate: Annotated[
+        bool,
+        typer.Option("--remediate/--no-remediate", help="Attempt one bounded correction."),
+    ] = True,
+    ruling_path: Annotated[
+        Path | None,
+        typer.Option("--ruling", help="A recorded domain ruling to apply to this run."),
+    ] = None,
 ) -> None:
     """Review a candidate migration and write its Migration Change Certificate.
 
-    Makes no model call. The decision comes from deterministic checks; the exit
-    code reflects the product state, so a blocked candidate fails the command.
+    Uses the recorded fake provider, so it makes no network call. The decision
+    comes from deterministic checks; the exit code reflects the product state, so
+    a blocked candidate fails the command.
     """
-    cert, run_dir = review_case(case_path, runs_root=runs_root)
+    ruling = load_ruling(ruling_path) if ruling_path is not None else None
+    cert, run_dir = review_case(
+        case_path,
+        runs_root=runs_root,
+        use_agents=agents,
+        remediate=remediate,
+        ruling=ruling,
+    )
     state = cert.first_screen.external_state
 
     colour = {
@@ -114,10 +138,18 @@ def review(
             f"  confirmed           {item.role} {item.operation} "
             f"{item.rows_affected} row(s) of tenant {item.affected_tenant}"
         )
+    if cert.correction is not None:
+        verified = "verified by clean rerun" if cert.correction.verified else "did not verify"
+        typer.echo(
+            f"  correction          addresses "
+            f"{', '.join(cert.correction.addresses_invariants)}, {verified}"
+        )
     typer.echo(f"  next action         {cert.first_screen.required_action}")
     typer.echo(f"  bundle              {run_dir}")
     typer.echo(f"  replay              {cert.first_screen.replay_command}")
 
+    if state == ExternalState.DOMAIN_RULING_REQUIRED.value:
+        typer.echo(f"  ruling packet       {run_dir}/ruling-packet.md")
     if state != ExternalState.READY_FOR_REVIEW.value:
         raise typer.Exit(
             ExitCode.EVIDENCE_INCOMPLETE

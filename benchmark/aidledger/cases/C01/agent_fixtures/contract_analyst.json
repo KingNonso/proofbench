@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C01",
+  "summary": "The candidate adds settlement_reference to payments by rewriting the table: create payments_new, copy, drop the original, rename, then restore grants. Grants are restored explicitly; nothing in the migration restores row-level security, which was an attribute of the dropped table.",
+  "facts": [
+    {
+      "statement": "The migration drops and recreates the payments table rather than using ALTER TABLE ADD COLUMN.",
+      "evidence_ref": "cases/C01/candidate.sql: DROP TABLE payments; ALTER TABLE payments_new RENAME TO payments"
+    },
+    {
+      "statement": "The migration restores SELECT, INSERT and UPDATE grants for aidledger_app and aidledger_service, and SELECT for aidledger_org_admin.",
+      "evidence_ref": "cases/C01/candidate.sql: GRANT statements after the rename"
+    },
+    {
+      "statement": "The migration contains no ENABLE ROW LEVEL SECURITY, no FORCE ROW LEVEL SECURITY, and no CREATE POLICY statement.",
+      "evidence_ref": "cases/C01/candidate.sql: full text, searched for POLICY and ROW LEVEL SECURITY"
+    },
+    {
+      "statement": "The policy declares four tenant-scoped roles and twelve access probes over payments and audit_events.",
+      "evidence_ref": "cases/C01/policy.yaml: roles and rls_probes"
+    },
+    {
+      "statement": "The visible test checks column presence, row count and the foreign key, and does not query as a tenant-scoped role.",
+      "evidence_ref": "cases/C01/visible_tests/001_schema_shape.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Recreating a table preserves the row-level security policies that applied to the original table.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C01/candidate.sql",
+        "policies/001_rls.sql"
+      ]
+    },
+    {
+      "statement": "The grants restored by the migration are sufficient to preserve the tenant boundary.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C01/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-RLS-001",
+      "description": "No session may read rows belonging to an organisation other than its own.",
+      "blocking_class": "blocking",
+      "executable_check": "Connect as each tenant-scoped role with a session organisation set, query payments filtered to a different organisation, and require zero rows."
+    },
+    {
+      "id": "INV-RLS-002",
+      "description": "Every declared role retains the access the policy grants it.",
+      "blocking_class": "blocking",
+      "executable_check": "Connect as each declared role and confirm its own-tenant reads and writes still succeed with the expected row counts."
+    },
+    {
+      "id": "INV-RLS-003",
+      "description": "No declared role gains access the policy does not grant it.",
+      "blocking_class": "blocking",
+      "executable_check": "Attempt each operation the policy denies and require SQLSTATE 42501."
+    }
+  ],
+  "unknowns": [
+    {
+      "question": "Whether the deployment process applies policies separately from migrations.",
+      "owner": "platform engineering",
+      "materiality": "minor"
+    }
+  ],
+  "authority_questions": []
+}

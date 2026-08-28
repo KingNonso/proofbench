@@ -24,13 +24,21 @@ from pydantic import Field
 from proofbench.decision.policy import decide
 from proofbench.domain.base import StrictModel
 from proofbench.domain.certificate import MigrationChangeCertificate, RunManifest
-from proofbench.errors import EvidenceIncompleteError
+from proofbench.domain.contract import MigrationContract
+from proofbench.domain.ruling import Ruling
+from proofbench.errors import CaseValidationError, EvidenceIncompleteError
 from proofbench.intake.loader import load_case
 from proofbench.sandbox.postgres import PostgresSandbox
 from proofbench.tracing.hashes import canonical_json, hash_file, sha256_hex
 from proofbench.tracing.validator import validate_trace
+from proofbench.workflow.authority import compile_ruling, has_unresolved_authority
 from proofbench.workflow.review import fixture_paths, new_run_id
-from proofbench.worlds.runner import prepare_world_database, run_required_worlds, run_visible_tests
+from proofbench.worlds.runner import (
+    prepare_world_database,
+    run_required_worlds,
+    run_visible_tests,
+    snapshot_payments,
+)
 
 REPLAY_SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
@@ -85,7 +93,7 @@ def replay(certificate_path: Path, *, benchmark_root: Path) -> ReplayReport:
     steps.extend(_verify_inputs(benchmark_root, manifest))
 
     if all(step.ok for step in steps):
-        steps.extend(_rerun(benchmark_root, cert, manifest))
+        steps.extend(_rerun(benchmark_root, cert, manifest, bundle))
     else:
         steps.append(
             ReplayStep(
@@ -196,22 +204,62 @@ def _verify_inputs(benchmark_root: Path, manifest: RunManifest) -> list[ReplaySt
 
 
 def _rerun(
-    benchmark_root: Path, cert: MigrationChangeCertificate, manifest: RunManifest
+    benchmark_root: Path, cert: MigrationChangeCertificate, manifest: RunManifest, bundle: Path
 ) -> list[ReplayStep]:
-    """Re-execute the recorded worlds from a clean sandbox and compare."""
+    """Re-execute what the recorded run executed, and compare.
+
+    Mirrors the recorded run rather than assuming a shape: it re-runs the worlds
+    that actually produced results, re-applies the recorded ruling if there was
+    one, and re-asks the recorded authority question if the run deferred its
+    worlds. A replay that ran a different plan would be comparing two different
+    experiments and calling agreement a reproduction.
+    """
     case_path = benchmark_root / "cases" / cert.case_id / "case.yaml"
     loaded = load_case(case_path)
     run_id = new_run_id()
 
+    recorded_worlds = [result.world for result in cert.world_results]
+    contract = _recorded_contract(bundle)
+    ruling = _recorded_ruling(bundle)
+    authority = _open_questions(contract, ruling)
+
+    if not recorded_worlds:
+        # The recorded run deferred its worlds pending a ruling. Re-executing
+        # them now would answer a question the recorded run declined to answer.
+        decision = decide([], authority_questions=authority)
+        same = decision.external_state.value == manifest.decision_state
+        return [
+            ReplayStep(
+                name="recorded run executed no world; nothing to re-execute",
+                ok=True,
+                detail=f"open authority questions: {len(authority)}",
+            ),
+            ReplayStep(
+                name="decision matches",
+                ok=same,
+                detail=""
+                if same
+                else f"recorded {manifest.decision_state} observed {decision.external_state.value}",
+            ),
+        ]
+
+    compiled = compile_ruling(ruling, contract) if ruling and contract else None
+
     sandbox = PostgresSandbox(run_id, fixture_paths(loaded))
     try:
         sandbox.start()
-        database = prepare_world_database(sandbox, loaded, "rls")
+        pre_state = snapshot_payments(sandbox, sandbox.clone("replay-snapshot"))
+        database = prepare_world_database(sandbox, loaded, recorded_worlds[0])
         visible = run_visible_tests(sandbox, database, loaded)
         results = run_required_worlds(
-            sandbox, loaded, run_id=run_id, database_by_world={"rls": database}
+            sandbox,
+            loaded,
+            run_id=run_id,
+            database_by_world={recorded_worlds[0]: database},
+            compiled_ruling=compiled,
+            pre_state=pre_state,
         )
-    except EvidenceIncompleteError as exc:
+    except (EvidenceIncompleteError, CaseValidationError) as exc:
         return [ReplayStep(name="rerun produced evidence", ok=False, detail=exc.message)]
     finally:
         sandbox.stop()
@@ -230,7 +278,7 @@ def _rerun(
         )
     )
 
-    decision = decide(results)
+    decision = decide(results, authority_questions=authority)
     same_state = decision.external_state.value == manifest.decision_state
     steps.append(
         ReplayStep(
@@ -254,3 +302,23 @@ def _rerun(
         )
     )
     return steps
+
+
+def _recorded_contract(bundle: Path) -> MigrationContract | None:
+    path = bundle / "contract.json"
+    if not path.is_file():
+        return None
+    return MigrationContract.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _recorded_ruling(bundle: Path) -> Ruling | None:
+    path = bundle / "ruling.json"
+    if not path.is_file():
+        return None
+    return Ruling.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _open_questions(contract: MigrationContract | None, ruling: Ruling | None) -> list[str]:
+    if contract is None or not has_unresolved_authority(contract, ruling):
+        return []
+    return [question.question for question in contract.unresolved_authority()]

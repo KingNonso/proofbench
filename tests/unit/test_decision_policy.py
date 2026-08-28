@@ -97,3 +97,21 @@ def test_a_confirmed_impact_cites_only_the_check_that_observed_it():
     )
     confirmed = decide([result]).confirmed
     assert [item.check_ids for item in confirmed] == [["rls:app-select-other"]]
+
+
+def test_deferred_worlds_pending_a_ruling_are_not_missing_evidence():
+    # Worlds are deliberately not run while an authority question is open.
+    # Reading that as an evidence failure would hide the human gate behind a
+    # generic "something went wrong".
+    decision = decide([], authority_questions=["were these payments USD?"])
+    assert decision.external_state is ExternalState.DOMAIN_RULING_REQUIRED
+    assert decision.evidence_complete
+
+
+def test_an_evidence_failure_still_outranks_an_authority_question():
+    decision = decide(
+        [],
+        authority_questions=["were these payments USD?"],
+        evidence_failures=[factories.failure()],
+    )
+    assert decision.external_state is ExternalState.EVIDENCE_INCOMPLETE
