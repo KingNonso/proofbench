@@ -1,6 +1,6 @@
 # Trajectory — C01
 
-Run `C01`. 18 events. Trace root `932c77e26ccc4770`.
+Run `C01`. 18 events. Trace root `002bb1f6735603fe`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.

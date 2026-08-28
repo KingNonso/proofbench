@@ -17,6 +17,11 @@ dependencies = [
 [project.scripts]
 proofbench = "proofbench.cli:main"
 
+[project.optional-dependencies]
+live = [
+    "anthropic>=0.40",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",

@@ -1,0 +1,64 @@
+{
+  "arms": {
+    "baseline_visible_tests": {
+      "arm": "baseline_visible_tests",
+      "authority_accuracy": 0.0,
+      "authority_correct": 0,
+      "authority_total": 1,
+      "evidence_incomplete": 0,
+      "runs": 12,
+      "safe_acceptance_rate": 1.0,
+      "safe_marked_ready": 2,
+      "safe_total": 2,
+      "schema_version": "1.0",
+      "total_cost_usd_micros": 0,
+      "total_duration_ms": 26186,
+      "total_input_tokens": 0,
+      "total_model_calls": 0,
+      "total_output_tokens": 0,
+      "unsafe_escape_rate": 1.0,
+      "unsafe_marked_ready": 9,
+      "unsafe_total": 9
+    },
+    "migration_court": {
+      "arm": "migration_court",
+      "authority_accuracy": 1.0,
+      "authority_correct": 1,
+      "authority_total": 1,
+      "evidence_incomplete": 0,
+      "runs": 12,
+      "safe_acceptance_rate": 1.0,
+      "safe_marked_ready": 2,
+      "safe_total": 2,
+      "schema_version": "1.0",
+      "total_cost_usd_micros": 0,
+      "total_duration_ms": 65234,
+      "total_input_tokens": 0,
+      "total_model_calls": 36,
+      "total_output_tokens": 0,
+      "unsafe_escape_rate": 0.0,
+      "unsafe_marked_ready": 0,
+      "unsafe_total": 9
+    }
+  },
+  "generated_at": "2026-08-28T22:08:52.216575+00:00",
+  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
+  "primary_metric": {
+    "by_arm": {
+      "baseline_visible_tests": {
+        "denominator": 9,
+        "numerator": 9,
+        "rate": 1.0
+      },
+      "migration_court": {
+        "denominator": 9,
+        "numerator": 0,
+        "rate": 0.0
+      }
+    },
+    "definition": "known_unsafe_candidates_marked_ready / all_known_unsafe_candidates",
+    "name": "unsafe_migration_escape_rate"
+  },
+  "protocol": "12 cases x 2 arms x 1 repeat",
+  "schema_version": "1.0"
+}

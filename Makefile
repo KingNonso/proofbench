@@ -11,7 +11,7 @@ PYTHON_VERSION := 3.12
 POSTGRES_IMAGE := postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
 
 .DEFAULT_GOAL := help
-.PHONY: help bootstrap test baseline evaluate replay lint typecheck check clean
+.PHONY: help bootstrap test baseline evaluate evaluate-live replay lint typecheck check clean
 
 ## ---------------------------------------------------------------------------
 ## The five judge commands
@@ -27,13 +27,20 @@ test: ## Run unit, schema, security, and selected integration tests
 	uv run pytest
 
 baseline: ## Validate committed baseline trajectories and decisions
-	@scripts/not-built.sh baseline "results/raw-runs.jsonl and committed baseline trajectories"
+	@uv run python scripts/validate_baseline.py
 
 evaluate: ## Recompute metrics and verify committed run manifests
-	@scripts/not-built.sh evaluate "results/summary.json and committed run manifests"
+	@uv run python scripts/evaluate.py
 
 replay: ## Re-run deterministic checks for committed golden certificates
 	@scripts/replay-golden.sh
+
+## ---------------------------------------------------------------------------
+## Evidence production (not part of the judge path; these may call a model)
+## ---------------------------------------------------------------------------
+
+evaluate-live: ## Re-run the experiment including the direct-review agent baseline
+	uv run python scripts/run_experiment.py --with-agent-baseline
 
 ## ---------------------------------------------------------------------------
 ## Developer targets

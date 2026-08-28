@@ -46,7 +46,7 @@ Semantic digest: `a7e2cd3cfed9ecae040457091b905ec7e6c4dc9d4afc517b40d0528bdc8a39
 
 ## Trajectory
 
-12 events, root `8d2945ecdb50fbae`.
+12 events, root `77b1155f6397bb02`.
 
 1. [ingest] reviewing C06: Backfill disbursements for settled payments without recording progress
 2. [agent:contract_analyst] contract_analyst request, attempt 1

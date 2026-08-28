@@ -280,3 +280,41 @@ recorded events by id and content. `money` gained duplicate-settlement detection
 because the unique constraint on (org_id, idempotency_key) is satisfied by a retry
 that mints a fresh key while paying the beneficiary twice.
 
+### 2026-08-28 — Release gate R4 closed: the paired experiment
+
+239 tests pass. The measured result, from `results/summary.json`: the
+visible-tests baseline escapes **9/9** unsafe migrations, ProofBench escapes
+**0/9**, and both accept **2/2** safe controls.
+
+**Found a bug that would have inflated the result.** C04's visible test declared
+a PL/pgSQL variable named `is_nullable`, shadowing the `information_schema`
+column of the same name. The test errored with "column reference is ambiguous"
+rather than passing — so the baseline rejected C04 for a reason that had nothing
+to do with the migration. Every case now has a test asserting its visible test
+passes, because the whole benchmark rests on that premise: a case whose defect
+the obvious check already catches is not testing what the deployment timeline
+adds.
+
+**The baseline is the manual process, and it is a real measurement.** Running the
+checks already in CI and merging if they pass is one of the baseline forms the
+brief names, it needs no key, and its 9/9 is observed rather than stipulated. The
+direct-review agent baseline from PRD-FR-002 is implemented — prompt, adapter and
+arm — but is deliberately **not run**: authoring a baseline's answers would be the
+easiest way in this repository to fake a result, and `results/comparison.md` says
+so in the report itself rather than in a footnote.
+
+**`summary.json` has to follow from `raw-runs.jsonl`.** `make evaluate`
+recomputes every numerator and denominator from the raw records and fails if they
+disagree, so a number in the submission cannot drift from the runs it came from.
+No rate is reported without its denominator, and `EVIDENCE_INCOMPLETE` gets its
+own column rather than being folded into either side.
+
+**Human time per task is not measured, and is recorded as not measured.** The
+brief asks for it; a number nobody timed would be worse than an absence.
+
+The improvement changelog (`results/improvement-changelog.md`) records three
+removed experiments with the evidence that removed them: the lock world's
+contention design (failed the correct migration), folding a passing correction
+into the decision (made the primary metric meaningless), and an unreachable
+`Ruling` validator.
+

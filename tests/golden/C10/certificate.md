@@ -46,7 +46,7 @@ Semantic digest: `bf348411eefee157117d363ade30e08d301b13baa219b1a67494ea06ba6aa7
 
 ## Trajectory
 
-12 events, root `b2c03c78db71da2b`.
+12 events, root `56dca7db0ccc0336`.
 
 1. [ingest] reviewing C10: Compact audit history while adding a retention column
 2. [agent:contract_analyst] contract_analyst request, attempt 1

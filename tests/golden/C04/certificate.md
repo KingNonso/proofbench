@@ -31,13 +31,13 @@ Possible impact (not executed): 0
 
 ## Visible tests
 
-- `visible:0:001_currency_not_null.sql` — **failed** (SQLSTATE 42702)
+- `visible:0:001_currency_not_null.sql` — **passed**
 ## Worlds
 
 
 ## Trajectory
 
-12 events, root `0c0dd841948dfc73`.
+12 events, root `0b4579561db950e9`.
 
 1. [ingest] reviewing C04: Backfill a missing currency and make the column NOT NULL
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -47,7 +47,7 @@ Possible impact (not executed): 0
 6. [agent:test_designer] test_designer responded, 1171 chars
 7. [design-worlds] plan selects money, rls
 8. [authority] authority required: Were all payments recorded before the currency field existed denominated in USD, or must their currency be sourced per organisation?
-9. [visible-tests] 0/1 visible tests passed
+9. [visible-tests] 1/1 visible tests passed
 10. [authority] worlds deferred pending a domain ruling
 11. [decide] decision: DOMAIN_RULING_REQUIRED
 12. [complete] C04 -> DOMAIN_RULING_REQUIRED
@@ -62,7 +62,7 @@ Possible impact (not executed): 0
 | Resolved image id | `sha256:43064e70a75c153a0ea5abed66b08e2981b7b43088bd59fb4b9f1a20ae4b62b0` |
 | Time zone | UTC |
 
-Inputs digest: `bad497f755e714d5c8cb821001339789e2bd5fda56e92c6ff7b0c58f6c3094d2`
+Inputs digest: `4f5535e95ebcf4ead024930dccfedc1f6f78e524eedccf0714cee03e671b200f`
 Manifest: `manifest.json`
 
 ## Known limits

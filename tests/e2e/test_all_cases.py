@@ -86,3 +86,18 @@ def test_the_challenging_case_exercises_every_world(benchmark_root, tmp_path):
     worlds = {result.world for result in cert.world_results}
     assert worlds == {"rls", "money", "rolling", "interruption", "rollback", "locks", "audit"}
     assert all(result.status.value == "passed" for result in cert.world_results)
+
+
+@pytest.mark.parametrize("case_id", ALL_CASES)
+def test_every_visible_test_passes(case_id, benchmark_root, tmp_path):
+    """The premise of the whole benchmark.
+
+    Every candidate — including the nine unsafe ones — passes the check a
+    reviewer would naturally run. A case whose defect the visible test already
+    catches would be testing nothing the deployment timeline adds, and a visible
+    test that errors on its own bug would look like a catch while catching
+    nothing.
+    """
+    cert, _ = run_and_score(case_id, benchmark_root, tmp_path)
+    failed = [check for check in cert.visible_tests if check.status.value != "passed"]
+    assert not failed, [(check.check_id, check.sqlstate, check.detail) for check in failed]

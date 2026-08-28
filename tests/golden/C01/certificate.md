@@ -66,7 +66,7 @@ Semantic digest: `1beb7ffe586dd1747a21ab945c84202471501dfa5544c4a789fc1b635fec20
 
 ## Trajectory
 
-18 events, root `932c77e26ccc4770`.
+18 events, root `002bb1f6735603fe`.
 
 1. [ingest] reviewing C01: Recreate payments to add a settlement reference
 2. [agent:contract_analyst] contract_analyst request, attempt 1

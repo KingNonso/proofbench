@@ -1,0 +1,25 @@
+case_id,case_class,expected_state,arm,repeat,outcome,marked_ready,evidence_incomplete,asked_for_authority,duration_ms,note
+C01,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,3830,All 1 visible tests passed against the migrated schema.
+C01,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,3221,INV-RLS-001
+C02,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,1773,All 1 visible tests passed against the migrated schema.
+C02,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,2700,INV-RLS-002
+C03,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,1531,All 1 visible tests passed against the migrated schema.
+C03,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,2916,INV-MONEY-001
+C04,authority_required,DOMAIN_RULING_REQUIRED,baseline_visible_tests,1,approve,True,False,False,1628,All 1 visible tests passed against the migrated schema.
+C04,authority_required,DOMAIN_RULING_REQUIRED,migration_court,1,DOMAIN_RULING_REQUIRED,False,False,True,3210,none failed
+C05,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,1580,All 1 visible tests passed against the migrated schema.
+C05,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,3778,INV-COMPAT-001
+C06,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,2202,All 1 visible tests passed against the migrated schema.
+C06,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,2935,INV-IDEM-001
+C07,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,2047,All 1 visible tests passed against the migrated schema.
+C07,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,5569,INV-LOCK-001
+C08,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,1784,All 1 visible tests passed against the migrated schema.
+C08,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,3989,INV-ROLLBACK-001
+C09,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,2442,All 1 visible tests passed against the migrated schema.
+C09,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,3123,INV-IDEM-002
+C10,unsafe,BLOCKED,baseline_visible_tests,1,approve,True,False,False,1871,All 1 visible tests passed against the migrated schema.
+C10,unsafe,BLOCKED,migration_court,1,BLOCKED,False,False,False,5594,INV-AUDIT-001
+C11,safe,READY_FOR_REVIEW,baseline_visible_tests,1,approve,True,False,False,2749,All 1 visible tests passed against the migrated schema.
+C11,safe,READY_FOR_REVIEW,migration_court,1,READY_FOR_REVIEW,True,False,False,8207,none failed
+C12,safe,READY_FOR_REVIEW,baseline_visible_tests,1,approve,True,False,False,2749,All 1 visible tests passed against the migrated schema.
+C12,safe,READY_FOR_REVIEW,migration_court,1,READY_FOR_REVIEW,True,False,False,19992,none failed

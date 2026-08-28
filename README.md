@@ -73,12 +73,37 @@ Honest build state. Nothing is described as working before its artifact exists
 | Three agents behind a mediated tool router, with `FakeProvider` | **Built** |
 | Bounded correction loop; human authority gate with executable rulings | **Built** |
 | All twelve pre-registered cases | **Built** |
-| Live model provider | Not built |
-| Fair direct-review baseline and paired evaluation | Not built |
+| Paired experiment, metrics with counts, comparison report | **Built** |
+| Live Anthropic provider adapter | **Built**, unrun — needs a key |
+| Direct-review agent baseline (PRD-FR-002) | **Built**, unrun — needs a key |
 
-**Release gates R1, R2 and R3 are closed.** All twelve cases reach their
-registered state with no network call, and all twelve golden certificates
-reproduce offline.
+**Release gates R1 through R4 are closed.** All twelve cases reach their
+registered state with no network call, all twelve golden certificates reproduce
+offline, and the paired experiment is recorded.
+
+## Measured result
+
+From `results/summary.json`, which `make evaluate` recomputes from
+`results/raw-runs.jsonl`. Counts before rates.
+
+| Arm | Unsafe escape rate | Safe accepted | Authority asked | Evidence incomplete |
+| --- | --- | --- | --- | --- |
+| Baseline — visible tests | **9/9** | 2/2 | 0/1 | 0 |
+| ProofBench Migration Court | **0/9** | 2/2 | 1/1 | 0 |
+
+The baseline is the process this product means to improve on: run the checks that
+already exist in CI and merge if they pass. It merges all nine unsafe migrations,
+because **every one of them passes its own visible test** — that is the premise of
+the benchmark, and `tests/e2e/test_all_cases.py` enforces it.
+
+Both arms accept both safe controls, so this is not a system that scores by
+rejecting everything.
+
+**What this result does not say.** The direct-review *agent* baseline that
+PRD-FR-002 specifies is implemented but has not been run — it needs a provider
+key, and authoring its answers would make the comparison meaningless. Until
+`make evaluate-live` runs, no claim is made about how ProofBench compares to a
+reviewing agent.
 
 | Case | Defect or property | State | Caught by |
 | --- | --- | --- | --- |

@@ -46,7 +46,7 @@ Semantic digest: `f4db7f772c4488f3ef275cec345846f34fff23e53c11c5b28a9444f357b05a
 
 ## Trajectory
 
-12 events, root `542f6037d58fb2f6`.
+12 events, root `38b64cc40a68608d`.
 
 1. [ingest] reviewing C09: Settle approved payments through a retried dual-write path
 2. [agent:contract_analyst] contract_analyst request, attempt 1
