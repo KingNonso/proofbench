@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C10",
+  "rationale": "The remaining history is internally consistent, so nothing after the fact looks wrong. Only a comparison against the events that existed before shows what is gone.",
+  "entries": [
+    {
+      "world": "audit",
+      "threatened_invariants": [
+        "INV-AUDIT-001"
+      ],
+      "rationale": "Compares recorded audit events before and after the migration by id and content.",
+      "parameters": {},
+      "expected_evidence": "Which event ids were removed or altered.",
+      "timeout_seconds": 120
+    }
+  ]
+}

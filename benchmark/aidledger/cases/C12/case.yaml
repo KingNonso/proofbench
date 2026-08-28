@@ -1,0 +1,112 @@
+schema_version: "1.1"
+case_id: C12
+title: Introduce a reconciliation column across a rolling deploy, with a safe rollback
+
+description: >
+  The difficult correct case, and the one nominated as the challenging case
+  for the submission. It adds a column, backfills it, and ships a rollback,
+  while surviving every world at once: both application versions stay live,
+  the backfill is safe to resume, rollback keeps writes made after the
+  migration began, no lock exceeds the budget, no amount or audit event moves,
+  and the tenant boundary is untouched.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C12/candidate.sql
+  rollback_path: cases/C12/rollback.sql
+
+visible_tests:
+  - cases/C12/visible_tests/001_reconciliation_key.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - rls
+    - money
+    - rolling
+    - interruption
+    - rollback
+    - locks
+    - audit
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000
+
+app_versions:
+  - version: v1
+    statements:
+      - label: read the columns v1 knows
+        sql: SELECT payment_id, amount_minor, currency_code, status FROM payments
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+      - label: record a payment the v1 way
+        sql: >
+          INSERT INTO payments (payment_id, org_id, beneficiary_id, amount_minor,
+          currency_code, status, created_at)
+          VALUES ('99999999-0000-4000-8000-00000000c12a', '11111111-1111-4111-8111-111111111111',
+          'aaaaaaa1-0000-4000-8000-000000000001', 2500, 'USD', 'pending',
+          '2026-08-28T12:00:00Z')
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+  - version: v2
+    statements:
+      - label: read the new column
+        sql: SELECT payment_id, reconciliation_key FROM payments
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+      - label: record a payment the v2 way
+        sql: >
+          INSERT INTO payments (payment_id, org_id, beneficiary_id, amount_minor,
+          currency_code, status, created_at, reconciliation_key)
+          VALUES ('99999999-0000-4000-8000-00000000c12b', '11111111-1111-4111-8111-111111111111',
+          'aaaaaaa1-0000-4000-8000-000000000001', 2500, 'USD', 'pending',
+          '2026-08-28T12:00:00Z', '11111111-1111-4111-8111-111111111111:99999999-0000-4000-8000-00000000c12b')
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+
+backfill:
+  statement: >
+    UPDATE payments SET reconciliation_key = org_id::text || ':' || payment_id::text
+    WHERE reconciliation_key IS DISTINCT FROM org_id::text || ':' || payment_id::text
+  role: aidledger_migration
+  observe_table: payments
+  observe_columns: [payment_id, reconciliation_key]
+
+lock_probe:
+  target_table: payments
+  statement: ALTER TABLE payments ADD COLUMN reconciliation_probe text
+  role: aidledger_migration
+
+# What the running application writes after the migration begins. It uses the
+# schema the migration just produced, because that is what the application does.
+post_migration_write:
+  label: payment recorded during the migration
+  sql: >
+    INSERT INTO payments (payment_id, org_id, beneficiary_id, amount_minor,
+    currency_code, status, created_at, reconciliation_key)
+    VALUES ('99999999-0000-4000-8000-0000000000ff', '11111111-1111-4111-8111-111111111111', 'aaaaaaa1-0000-4000-8000-000000000001', 4200, 'USD',
+    'pending', '2026-08-28T12:00:00Z', '11111111-1111-4111-8111-111111111111:99999999-0000-4000-8000-0000000000ff')
+  role: aidledger_migration
+  tenant: 11111111-1111-4111-8111-111111111111

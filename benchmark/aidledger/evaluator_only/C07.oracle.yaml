@@ -1,0 +1,15 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C07
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-LOCK-001
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  A NOT NULL column with a volatile default forces a full table rewrite under
+  ACCESS EXCLUSIVE. On the fixture it returns instantly, so elapsed time
+  proves nothing; the changed relation filenode proves it exactly.

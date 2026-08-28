@@ -16,9 +16,10 @@ from proofbench.providers.fake import FakeProvider
 from proofbench.sandbox.postgres import APPLICATION_ROLES
 from proofbench.tools.router import ToolContext, ToolRouter
 
-# Worlds with an executable implementation. The Test Designer may select any
-# catalog world; deterministic code refuses to pretend an unimplemented one ran.
-IMPLEMENTED_WORLDS = frozenset({WorldName.RLS})
+# Worlds with an executable implementation. All seven of the catalog are now
+# executable; the check stays because a plan naming a world that cannot run
+# would produce silence, and silence reads as a pass.
+IMPLEMENTED_WORLDS = frozenset(WorldName)
 
 SCHEMA_SUMMARY = """\
 Tables (all amounts are integer minor units; there is no numeric or float column):

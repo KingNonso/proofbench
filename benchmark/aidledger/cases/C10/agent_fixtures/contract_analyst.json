@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C10",
+  "summary": "The migration adds a retention column to audit_events and deletes the event types the author considered redundant. It runs as the table owner, so the append-only grant does not stop it.",
+  "facts": [
+    {
+      "statement": "The migration deletes audit events where action = 'disbursement.settled'.",
+      "evidence_ref": "cases/C10/candidate.sql: DELETE FROM audit_events"
+    },
+    {
+      "statement": "No role is granted DELETE on audit_events; the migration runs as the owner.",
+      "evidence_ref": "roles/001_roles.sql: no DELETE grant on audit_events"
+    },
+    {
+      "statement": "The visible test checks only the events that remain.",
+      "evidence_ref": "cases/C10/visible_tests/001_retention_present.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "The deleted audit events are redundant and are not required by any reader.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C10/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-AUDIT-001",
+      "description": "Audit events remain present, append-only, attributable, and tenant-scoped.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare recorded audit events before and after; require none removed or altered."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

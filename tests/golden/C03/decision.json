@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["money:conservation"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-MONEY-001 failed in world money: 4 payment amount(s) changed during the migration"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

@@ -45,7 +45,7 @@ class MoneyWorld(World):
     """Verifies a compiled currency ruling and value conservation."""
 
     name = WORLD_NAME
-    threatened_invariants = (CONSERVATION_INVARIANT, "INV-MONEY-002")
+    threatened_invariants = (CONSERVATION_INVARIANT, "INV-MONEY-002", "INV-IDEM-002")
 
     def run(self, request: WorldRequest) -> WorldResult:
         started = datetime.now(UTC)
@@ -88,6 +88,7 @@ class MoneyWorld(World):
         before = {row.payment_id: row for row in request.pre_state}
 
         checks.append(self._conservation(before, after, findings, clock))
+        checks.append(self._settled_once(request, findings, clock))
         if request.compiled_ruling is not None:
             checks.extend(self._ruling_checks(request, before, after, findings, clock))
 
@@ -122,6 +123,59 @@ class MoneyWorld(World):
             status=CheckStatus.FAILED if moved else CheckStatus.PASSED,
             duration_ms=int((time.monotonic() - clock) * 1000),
             blocking_class=CONSERVATION_INVARIANT,
+        )
+
+    def _settled_once(
+        self, request: WorldRequest, findings: list[Finding], clock: float
+    ) -> CheckResult:
+        """A payment must not gain a second disbursement (PRD-FR-032).
+
+        The unique constraint on (org_id, idempotency_key) does not help here: a
+        retry path that mints a fresh key on every attempt satisfies it while
+        paying the beneficiary twice. Counting settlements per payment does.
+        """
+        before_counts: dict[str, int] = {}
+        for row in request.pre_disbursements:
+            before_counts[row.payment_id] = before_counts.get(row.payment_id, 0) + 1
+
+        try:
+            with psycopg.connect(request.dsn(MIGRATION_ROLE)) as conn:
+                rows = conn.execute(
+                    "SELECT payment_id, count(*) FROM disbursements GROUP BY payment_id"
+                ).fetchall()
+        except psycopg.Error as exc:
+            return CheckResult(
+                check_id="money:settled-once",
+                command="count disbursements per payment",
+                status=CheckStatus.ERROR,
+                duration_ms=int((time.monotonic() - clock) * 1000),
+                sqlstate=exc.sqlstate,
+            )
+
+        duplicated = sorted(
+            str(row[0])
+            for row in rows
+            if int(row[1]) > 1 and int(row[1]) > before_counts.get(str(row[0]), 0)
+        )
+        if duplicated:
+            findings.append(
+                Finding(
+                    invariant_id="INV-IDEM-002",
+                    blocking=True,
+                    summary=(
+                        f"{len(duplicated)} payment(s) were settled more than once by the migration"
+                    ),
+                    expected="each payment settles exactly once",
+                    observed=f"duplicated: {', '.join(duplicated[:5])}",
+                    check_ids=["money:settled-once"],
+                )
+            )
+        return CheckResult(
+            check_id="money:settled-once",
+            command="count disbursements per payment, before and after",
+            status=CheckStatus.FAILED if duplicated else CheckStatus.PASSED,
+            duration_ms=int((time.monotonic() - clock) * 1000),
+            blocking_class="INV-IDEM-002",
         )
 
     def _ruling_checks(

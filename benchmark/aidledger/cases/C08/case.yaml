@@ -1,0 +1,55 @@
+schema_version: "1.1"
+case_id: C08
+title: Split payment status into a lookup table, with a rollback that restores the old table
+
+description: >
+  The migration normalises payment status into a lookup table and its rollback
+  restores the previous shape from a backup copy taken at the start. The
+  backup is a snapshot: anything written after the migration began is not in
+  it, and the rollback replaces the live table with it.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C08/candidate.sql
+  rollback_path: cases/C08/rollback.sql
+
+visible_tests:
+  - cases/C08/visible_tests/001_status_normalised.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - rollback
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000
+
+# The status_id column the migration just added is NOT NULL, so a realistic
+# post-migration write sets it.
+post_migration_write:
+  label: payment recorded during the migration
+  sql: >
+    INSERT INTO payments (payment_id, org_id, beneficiary_id, amount_minor,
+    currency_code, status, created_at, status_id)
+    VALUES ('99999999-0000-4000-8000-0000000000ff', '11111111-1111-4111-8111-111111111111', 'aaaaaaa1-0000-4000-8000-000000000001', 4200, 'USD',
+    'pending', '2026-08-28T12:00:00Z', 1)
+  role: aidledger_migration
+  tenant: 11111111-1111-4111-8111-111111111111

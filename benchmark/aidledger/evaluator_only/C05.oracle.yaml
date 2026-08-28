@@ -1,0 +1,15 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C05
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-COMPAT-001
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  Expand and contract in the same deploy. amount_minor is dropped while the
+  version still running writes it. The final schema is exactly what was
+  intended, and the outage lasts as long as the rollout.

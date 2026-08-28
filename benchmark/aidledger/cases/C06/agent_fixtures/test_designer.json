@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C06",
+  "rationale": "The assumption is that the deploy is never interrupted. Running the backfill a second time is what a resumed deploy does, and it settles the question directly.",
+  "entries": [
+    {
+      "world": "interruption",
+      "threatened_invariants": [
+        "INV-IDEM-001"
+      ],
+      "rationale": "Re-runs the declared backfill and compares the observable disbursement state.",
+      "parameters": {},
+      "expected_evidence": "Disbursement rows before and after the resumed run.",
+      "timeout_seconds": 120
+    }
+  ]
+}

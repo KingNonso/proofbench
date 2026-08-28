@@ -22,7 +22,7 @@ from pydantic import AfterValidator, Field, model_validator
 
 from proofbench.domain.base import SqlIdentifier, StrictModel
 
-CASE_SCHEMA_VERSION = "1.0"
+CASE_SCHEMA_VERSION = "1.1"
 # Bumped to 1.1 when ambiguous read/write booleans became executable probes.
 POLICY_SCHEMA_VERSION = "1.1"
 
@@ -91,10 +91,61 @@ class BudgetSpec(StrictModel):
     max_model_tokens: int = Field(ge=0, le=1_000_000)
 
 
+class AppStatement(StrictModel):
+    """One statement an application version issues.
+
+    Parameterless by construction. A rolling-compatibility world needs to run
+    what each version actually does, and a statement that took parameters from
+    somewhere else would not be reproducible.
+    """
+
+    label: str = Field(min_length=1)
+    sql: str = Field(min_length=1)
+    role: SqlIdentifier
+    tenant: UUID
+    must_succeed: bool = True
+
+
+class AppVersion(StrictModel):
+    """What one deployed application version reads and writes."""
+
+    version: str = Field(min_length=1)
+    statements: list[AppStatement] = Field(min_length=1)
+
+
+class BackfillSpec(StrictModel):
+    """A backfill and whether resuming it is expected to be safe.
+
+    The world runs the statement twice. A backfill that records its own progress
+    is unchanged by the second run; one that does not will duplicate, which is
+    exactly what an interrupted-and-resumed deploy does to it.
+    """
+
+    statement: str = Field(min_length=1)
+    role: SqlIdentifier
+    observe_table: SqlIdentifier
+    observe_columns: list[SqlIdentifier] = Field(min_length=1)
+
+
+class LockProbeSpec(StrictModel):
+    """The statement whose lock behaviour is under test.
+
+    The discriminating fact is whether the statement *rewrites the table*, not
+    whether it takes an exclusive lock: every ALTER TABLE takes one, including
+    the safe ones. A rewrite holds it for as long as the rewrite takes, which on
+    a production table is the outage. PostgreSQL exposes that directly as a
+    changed relation filenode, and a filenode is the same on every machine.
+    """
+
+    target_table: SqlIdentifier
+    statement: str = Field(min_length=1)
+    role: SqlIdentifier
+
+
 class CaseSpec(StrictModel):
     """One reviewable case. Evaluator labels live in a separate OracleSpec file."""
 
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     case_id: str = Field(pattern=r"^C\d{2}$")
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1)
@@ -106,6 +157,17 @@ class CaseSpec(StrictModel):
     worlds: WorldSelection
     seed: int = Field(ge=0)
     budgets: BudgetSpec
+
+    # Per-case world configuration. Absent when the case does not require the
+    # world that reads it; a world whose configuration is missing refuses to run
+    # rather than inventing a default.
+    app_versions: list[AppVersion] = Field(default_factory=list)
+    backfill: BackfillSpec | None = None
+    lock_probe: LockProbeSpec | None = None
+    # A write the running application makes after the migration begins. It has
+    # to be declared per case, because a realistic write uses whatever columns
+    # the migration just added.
+    post_migration_write: AppStatement | None = None
 
 
 # ---------------------------------------------------------------------------

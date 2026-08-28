@@ -1,13 +1,13 @@
-# Policy schema 1.1.
+# Shared AidLedger policy, schema 1.1.
 #
-# 1.0 declared access as read/write booleans. Those could not say what a denial
-# should look like: row-level security denies by filtering to zero rows, while a
-# missing grant raises. A migration that dropped RLS entirely and one that kept
-# it looked identical through booleans. Probes are executable and say exactly
-# what they expect.
+# One policy for all twelve cases. Per-case copies would drift: a probe fixed in
+# one case and not another would make two cases disagree about what the tenant
+# boundary is, and the benchmark would be measuring its own inconsistency.
+#
+# Cases differ in their candidate migration and in which worlds they require,
+# not in what the system is supposed to guarantee.
 #
 # Tenants: 1111... is Northwind Relief, 2222... is Southgate Aid.
-
 schema_version: "1.1"
 policy_id: aidledger-default
 version: 2
@@ -47,6 +47,25 @@ invariants:
 
 # Both directions are probed. A world that only checked that permitted access
 # still works would pass a migration that granted the world to everyone.
+  - id: INV-IDEM-001
+    description: An interrupted and resumed backfill neither loses nor duplicates effects
+    blocking: true
+  - id: INV-IDEM-002
+    description: A retried disbursement with the same idempotency key settles once
+    blocking: true
+  - id: INV-COMPAT-001
+    description: Both application versions preserve declared semantics during rollout
+    blocking: true
+  - id: INV-LOCK-001
+    description: No migration statement exceeds the declared lock budget
+    blocking: true
+  - id: INV-ROLLBACK-001
+    description: Rollback preserves writes committed after the migration began
+    blocking: true
+  - id: INV-AUDIT-001
+    description: Audit events remain present, append-only, attributable, and tenant-scoped
+    blocking: true
+
 rls_probes:
   # --- aidledger_app -------------------------------------------------------
   - probe_id: app-select-own

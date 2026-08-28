@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C12",
+  "summary": "The migration adds a nullable column with no default, backfills it deterministically from the row itself, indexes it, and ships a rollback that drops only what it added. Nothing is dropped from the old schema and audit history is not touched.",
+  "facts": [
+    {
+      "statement": "The column is added nullable and without a default, so the add is metadata-only.",
+      "evidence_ref": "cases/C12/candidate.sql: ALTER TABLE payments ADD COLUMN reconciliation_key text"
+    },
+    {
+      "statement": "The backfill value is derived from org_id and payment_id, so it is the same on any run.",
+      "evidence_ref": "cases/C12/candidate.sql: org_id::text || ':' || payment_id::text"
+    },
+    {
+      "statement": "The backfill excludes rows already carrying the value, so repeating it changes nothing.",
+      "evidence_ref": "cases/C12/candidate.sql: WHERE reconciliation_key IS DISTINCT FROM ..."
+    },
+    {
+      "statement": "No column is dropped, so the version still running keeps working.",
+      "evidence_ref": "cases/C12/candidate.sql: full text"
+    },
+    {
+      "statement": "The rollback drops only the index and the added column.",
+      "evidence_ref": "cases/C12/rollback.sql"
+    },
+    {
+      "statement": "No statement reads or writes audit_events.",
+      "evidence_ref": "cases/C12/candidate.sql: full text"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "A deterministic backfill key derived from the row makes a resumed backfill a no-op.",
+      "safety_relevance": "material",
+      "evidence_checked": [
+        "cases/C12/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-RLS-001",
+      "description": "No session may read rows belonging to an organisation other than its own.",
+      "blocking_class": "blocking",
+      "executable_check": "Run the declared role-by-tenant access matrix after the migration and require zero cross-tenant rows."
+    },
+    {
+      "id": "INV-MONEY-001",
+      "description": "Minor-unit values are exact; no conversion may change a total.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare amount_minor per payment before and after in integer minor units."
+    },
+    {
+      "id": "INV-COMPAT-001",
+      "description": "Both application versions preserve declared semantics during rollout.",
+      "blocking_class": "blocking",
+      "executable_check": "Run each live version's declared statements against the migrated schema."
+    },
+    {
+      "id": "INV-IDEM-001",
+      "description": "An interrupted and resumed backfill neither loses nor duplicates effects.",
+      "blocking_class": "blocking",
+      "executable_check": "Re-run the backfill and require the observable state to be unchanged."
+    },
+    {
+      "id": "INV-ROLLBACK-001",
+      "description": "Rollback preserves writes committed after the migration began.",
+      "blocking_class": "blocking",
+      "executable_check": "Write a payment after the migration, roll back, and require the row to survive."
+    },
+    {
+      "id": "INV-LOCK-001",
+      "description": "No migration statement exceeds the declared lock budget.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare pg_relation_filenode across the statement; a changed filenode is a full table rewrite."
+    },
+    {
+      "id": "INV-AUDIT-001",
+      "description": "Audit events remain present, append-only, attributable, and tenant-scoped.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare recorded audit events before and after; require none removed or altered."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

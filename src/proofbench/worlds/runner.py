@@ -15,7 +15,7 @@ from pathlib import Path
 import psycopg
 from psycopg import sql
 
-from proofbench.domain.case import ProbeOutcome, RlsProbeSpec
+from proofbench.domain.case import AppVersion, ProbeOutcome, RlsProbeSpec
 from proofbench.domain.evidence import CheckResult, CheckStatus, WorldResult
 from proofbench.domain.ruling import CompiledRuling
 from proofbench.domain.trace import EventType
@@ -24,7 +24,13 @@ from proofbench.intake.loader import LoadedCase
 from proofbench.sandbox.postgres import MIGRATION_ROLE, PostgresSandbox
 from proofbench.sandbox.worker import run_world
 from proofbench.tracing.writer import TraceWriter
-from proofbench.worlds.base import PaymentSnapshotRow, ProbeTarget, WorldRequest
+from proofbench.worlds.base import (
+    AuditSnapshotRow,
+    DisbursementSnapshotRow,
+    PaymentSnapshotRow,
+    ProbeTarget,
+    WorldRequest,
+)
 
 
 def prepare_world_database(sandbox: PostgresSandbox, loaded: LoadedCase, world: str) -> str:
@@ -124,8 +130,18 @@ def snapshot_payments(sandbox: PostgresSandbox, database: str) -> list[PaymentSn
     ]
 
 
+def _rollback_sql(loaded: LoadedCase) -> str | None:
+    """The declared rollback script, if the case ships one."""
+    if loaded.case.candidate.rollback_path is None:
+        return None
+    return (loaded.benchmark_root / loaded.case.candidate.rollback_path).read_text(encoding="utf-8")
+
+
 def _credentials_for(
-    sandbox: PostgresSandbox, world: str, targets: list[ProbeTarget]
+    sandbox: PostgresSandbox,
+    world: str,
+    targets: list[ProbeTarget],
+    app_versions: list[AppVersion],
 ) -> dict[str, str]:
     """The narrowest credential set the world can work with.
 
@@ -134,9 +150,55 @@ def _credentials_for(
     holding no cluster capability at all.
     """
     roles = {target.probe.role for target in targets}
-    if world == "money":
+    if world in {"money", "audit", "rollback", "locks", "interruption"}:
+        # These read or write across tenants. The migration role can, through its
+        # maintenance policies, while holding no cluster capability at all.
         roles = {MIGRATION_ROLE}
+    if world == "rolling":
+        roles = {MIGRATION_ROLE, *(s.role for v in app_versions for s in v.statements)}
     return {role: sandbox.credentials.role_passwords[role] for role in sorted(roles)}
+
+
+def snapshot_disbursements(
+    sandbox: PostgresSandbox, database: str
+) -> list[DisbursementSnapshotRow]:
+    """Capture settled disbursements before the candidate applies."""
+    with sandbox.connect(database) as conn:
+        rows = conn.execute(
+            "SELECT disbursement_id, payment_id, amount_minor FROM disbursements ORDER BY 1"
+        ).fetchall()
+    return [
+        DisbursementSnapshotRow(
+            disbursement_id=str(row[0]),
+            payment_id=str(row[1]),
+            amount_minor=int(row[2]) if isinstance(row[2], int) else 0,
+        )
+        for row in rows
+    ]
+
+
+def snapshot_audit(sandbox: PostgresSandbox, database: str) -> list[AuditSnapshotRow]:
+    """Capture audit history before the candidate applies."""
+    with sandbox.connect(database) as conn:
+        rows = conn.execute(
+            "SELECT event_id, org_id, actor_role, action, entity_id FROM audit_events ORDER BY 1"
+        ).fetchall()
+    return [
+        AuditSnapshotRow(
+            event_id=int(row[0]) if isinstance(row[0], int) else 0,
+            org_id=str(row[1]),
+            actor_role=str(row[2]),
+            action=str(row[3]),
+            entity_id=str(row[4]),
+        )
+        for row in rows
+    ]
+
+
+# The lock world measures a statement acquiring its lock, so it needs a database
+# the candidate has *not* already been applied to. Every other world measures the
+# state the candidate left behind.
+CLEAN_DATABASE_WORLDS = frozenset({"locks"})
 
 
 def run_required_worlds(
@@ -148,15 +210,20 @@ def run_required_worlds(
     database_by_world: dict[str, str] | None = None,
     compiled_ruling: CompiledRuling | None = None,
     pre_state: list[PaymentSnapshotRow] | None = None,
+    pre_audit: list[AuditSnapshotRow] | None = None,
+    pre_disbursements: list[DisbursementSnapshotRow] | None = None,
 ) -> list[WorldResult]:
     """Run every world the case declares required, each on its own database."""
     results: list[WorldResult] = []
 
     for world in loaded.case.worlds.required:
         name = world.value
-        database = (database_by_world or {}).get(name) or prepare_world_database(
-            sandbox, loaded, name
-        )
+        if name in CLEAN_DATABASE_WORLDS:
+            database = sandbox.clone(f"{name}-clean")
+        else:
+            database = (database_by_world or {}).get(name) or prepare_world_database(
+                sandbox, loaded, name
+            )
         if name == "money" and not (pre_state or []):
             # A money world with no before state cannot attribute a change to
             # the migration, and would report a clean pass for a value it never
@@ -175,10 +242,18 @@ def run_required_worlds(
             database=database,
             # Only the roles this world probes. No administrative credential
             # crosses into the child.
-            credentials=_credentials_for(sandbox, name, targets),
+            credentials=_credentials_for(sandbox, name, targets, list(loaded.case.app_versions)),
             targets=targets,
             compiled_ruling=compiled_ruling,
             pre_state=pre_state or [],
+            pre_audit=pre_audit or [],
+            pre_disbursements=pre_disbursements or [],
+            app_versions=list(loaded.case.app_versions),
+            backfill=loaded.case.backfill,
+            lock_probe=loaded.case.lock_probe,
+            lock_budget_ms=loaded.policy.lock.budget_ms,
+            rollback_sql=_rollback_sql(loaded),
+            post_migration_write=loaded.case.post_migration_write,
             deadline_seconds=loaded.case.budgets.world_timeout_seconds,
         )
 

@@ -1,0 +1,116 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Migration Change Certificate — C09</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Local only: no remote fonts, scripts, or assets. The certificate must
+     render identically on a machine with no network. */
+  :root {
+    --ink: #14181f; --muted: #5b6472; --rule: #d9dee6; --bg: #fbfcfd;
+    --panel: #ffffff; --blocked: #a4262c; --ready: #0b6a35; --warn: #8a5a00;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 1.6rem; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 62rem; margin: 0 auto; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
+  .screen { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px;
+            padding: 1.1rem 1.3rem; }
+  .state { display: inline-block; font-weight: 700; letter-spacing: .04em;
+           padding: .3rem .7rem; border-radius: 6px; color: #fff; font-size: 1.05rem; }
+  .state.BLOCKED { background: var(--blocked); }
+  .state.READY_FOR_REVIEW { background: var(--ready); }
+  .state.DOMAIN_RULING_REQUIRED { background: var(--warn); }
+  .state.EVIDENCE_INCOMPLETE { background: var(--muted); }
+  h1 { font-size: 1.05rem; margin: 0 0 .8rem; color: var(--muted); font-weight: 600; }
+  h2 { font-size: 1rem; margin: 1.8rem 0 .6rem; border-bottom: 1px solid var(--rule);
+       padding-bottom: .3rem; }
+  h3 { font-size: .92rem; margin: 1.1rem 0 .4rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; margin: .9rem 0 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: .9rem; }
+  th, td { text-align: left; padding: .35rem .55rem; border-bottom: 1px solid var(--rule);
+           vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { text-align: right; }
+  pre.replay { background: #10151c; color: #e6edf3; padding: .7rem .9rem; border-radius: 7px;
+               overflow-x: auto; margin: .6rem 0 0; }
+  .note { color: var(--muted); font-size: .88rem; }
+  ol.timeline { padding-left: 1.2rem; }
+  ol.timeline li { margin: .2rem 0; }
+  .pass { color: var(--ready); font-weight: 600; }
+  .fail { color: var(--blocked); font-weight: 600; }
+</style>
+<main>
+  <!-- First screen: PRD-FR-060. All seven fields, no scrolling. -->
+  <section class="screen">
+    <h1>Migration Change Certificate — C09: Settle approved payments through a retried dual-write path</h1>
+    <span class="state BLOCKED">BLOCKED</span>
+    <dl>
+      <dt>Candidate change</dt><dd>Settle approved payments through a retried dual-write path</dd>
+      <dt>Decisive invariant</dt><dd><code>INV-IDEM-002</code></dd>
+      <dt>Confirmed blast radius</dt>
+      <dd>
+<span class="note">Nothing confirmed.</span>      </dd>
+      <dt>Required action</dt><dd>Correct the candidate migration and re-run.</dd>
+      <dt>Human ruling</dt><dd>none required</dd>
+    </dl>
+    <pre class="replay">uv run proofbench replay tests/golden/C09/certificate.json</pre>
+  </section>
+
+  <h2>Decision</h2>
+  <ul><li>INV-IDEM-002 failed in world money: 1 payment(s) were settled more than once by the migration</li></ul>
+  <p class="note">
+    Decisive checks: <code>money:settled-once</code>.
+    Evidence complete: yes.
+    Possible impact, not executed: 0.
+    Confirmed and possible are kept separate and never merged.
+  </p>
+
+  <h2>Visible tests</h2>
+  <table>
+    <tr><th>Check</th><th>Status</th><th>SQLSTATE</th></tr>
+    <tr>
+      <td><code>visible:0:001_approved_are_settled.sql</code></td>
+      <td class="pass">passed</td>
+      <td><code>—</code></td>
+    </tr>
+  </table>
+
+
+  <h2>Worlds</h2>
+  <h3>money — <span class="fail">failed</span></h3>
+  <p class="note">
+    Threatened: INV-MONEY-001, INV-MONEY-002, INV-IDEM-002 ·
+    2 checks ·
+    digest <code>f4db7f772c4488f3</code>
+  </p>
+  <table>
+    <tr><th>INV-IDEM-002</th><td>1 payment(s) were settled more than once by the migration</td></tr>
+    <tr><th>Expected</th><td>each payment settles exactly once</td></tr>
+    <tr><th>Observed</th><td>duplicated: ccccccc3-0000-4000-8000-000000000002</td></tr>
+  </table>
+
+  <h2>Trajectory</h2>
+  <p class="note">
+    12 events, root <code>542f6037d58fb2f6</code>.
+    Observable actions only; no hidden reasoning is recorded.
+  </p>
+  <ol class="timeline">
+<li>[ingest] reviewing C09: Settle approved payments through a retried dual-write path</li><li>[agent:contract_analyst] contract_analyst request, attempt 1</li><li>[agent:contract_analyst] contract_analyst responded, 2034 chars</li><li>[contract] The unique constraint on the idempotency key prevents a payment from being settled twice.</li><li>[agent:test_designer] test_designer request, attempt 1</li><li>[agent:test_designer] test_designer responded, 641 chars</li><li>[design-worlds] plan selects money</li><li>[visible-tests] 1/1 visible tests passed</li><li>[world:money] running world money on w_c09_money</li><li>[world:money] world money ended as failed findings=INV-IDEM-002</li><li>[decide] decision: BLOCKED</li><li>[complete] C09 -> BLOCKED</li>  </ol>
+
+  <h2>Environment</h2>
+  <table>
+    <tr><th>Python</th><td>3.12.12</td></tr>
+    <tr><th>Platform</th><td>macOS-14.1-x86_64-i386-64bit</td></tr>
+    <tr><th>PostgreSQL image</th><td><code>postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94</code></td></tr>
+    <tr><th>Resolved image id</th><td><code>sha256:43064e70a75c153a0ea5abed66b08e2981b7b43088bd59fb4b9f1a20ae4b62b0</code></td></tr>
+    <tr><th>Time zone</th><td>UTC</td></tr>
+    <tr><th>Inputs digest</th><td><code>f4220267f9db7ed3947b410dda6103ff847ed5befd0a0bd13ef364bc6e5351ca</code></td></tr>
+    <tr><th>Manifest</th><td><code>manifest.json</code></td></tr>
+  </table>
+
+  <h2>Known limits</h2>
+  <ul><li>One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.</li><li>No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.</li><li>Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.</li><li>ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.</li></ul>
+</main>

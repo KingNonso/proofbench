@@ -1,0 +1,70 @@
+schema_version: "1.1"
+case_id: C05
+title: Drop the old amount column after adding a scaled replacement
+
+description: >
+  The migration adds amount_scaled, copies the values across, and drops the
+  old amount_minor column in the same change. The new application version is
+  happy. The version still running during the rollout writes amount_minor, and
+  that column no longer exists.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C05/candidate.sql
+  rollback_path: null
+
+visible_tests:
+  - cases/C05/visible_tests/001_new_column_present.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - rolling
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000
+
+# Both versions are live during a rolling deploy. v1 is the code still running.
+app_versions:
+  - version: v1
+    statements:
+      - label: read payments
+        sql: SELECT payment_id, amount_minor FROM payments
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+      - label: record a payment
+        sql: >
+          INSERT INTO payments (payment_id, org_id, beneficiary_id, amount_minor,
+          currency_code, status, created_at)
+          VALUES ('99999999-0000-4000-8000-00000000c005', '11111111-1111-4111-8111-111111111111',
+          'aaaaaaa1-0000-4000-8000-000000000001', 1000, 'USD', 'pending',
+          '2026-08-28T12:00:00Z')
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true
+  - version: v2
+    statements:
+      - label: read payments
+        sql: SELECT payment_id, amount_scaled FROM payments
+        role: aidledger_app
+        tenant: 11111111-1111-4111-8111-111111111111
+        must_succeed: true

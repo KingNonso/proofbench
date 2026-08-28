@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C11",
+  "summary": "The migration adds a nullable column and backfills it from disbursements. Nothing is dropped, no default forces a rewrite, and the backfill excludes rows that already hold the value.",
+  "facts": [
+    {
+      "statement": "The column is added nullable and without a default.",
+      "evidence_ref": "cases/C11/candidate.sql: ALTER TABLE payments ADD COLUMN settlement_reference text"
+    },
+    {
+      "statement": "The backfill excludes rows already carrying the target value.",
+      "evidence_ref": "cases/C11/candidate.sql: WHERE p.settlement_reference IS DISTINCT FROM ..."
+    },
+    {
+      "statement": "No column is dropped and the table is not recreated, so row-level security is untouched.",
+      "evidence_ref": "cases/C11/candidate.sql: full text"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Adding a nullable column without a default does not rewrite the table.",
+      "safety_relevance": "material",
+      "evidence_checked": [
+        "cases/C11/candidate.sql",
+        "schema/001_core.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-RLS-001",
+      "description": "No session may read rows belonging to an organisation other than its own.",
+      "blocking_class": "blocking",
+      "executable_check": "Run the declared role-by-tenant access matrix after the migration and require zero cross-tenant rows."
+    },
+    {
+      "id": "INV-MONEY-001",
+      "description": "Minor-unit values are exact; no conversion may change a total.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare amount_minor per payment before and after in integer minor units."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

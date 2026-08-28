@@ -1,0 +1,15 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C09
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-IDEM-002
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  The retry mints a new idempotency key, so the unique constraint that exists
+  to prevent double payment is satisfied by both attempts. The constraint
+  holds and the beneficiary is paid twice.

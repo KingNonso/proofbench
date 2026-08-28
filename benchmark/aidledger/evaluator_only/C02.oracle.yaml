@@ -1,0 +1,16 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C02
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-RLS-002
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  The migration restores row-level security and the application policy, but
+  not the organisation-administrator read policy. The application path works,
+  so nothing a developer would try reveals the gap. The organisation
+  administrator loses the read access the policy grants it.

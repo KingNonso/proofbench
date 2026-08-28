@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C05",
+  "summary": "The migration adds amount_scaled, copies amount_minor into it, and drops amount_minor in the same transaction. The expand and the contract happen in one deploy.",
+  "facts": [
+    {
+      "statement": "The migration adds amount_scaled and populates it from amount_minor.",
+      "evidence_ref": "cases/C05/candidate.sql: ADD COLUMN amount_scaled and the UPDATE"
+    },
+    {
+      "statement": "The migration drops amount_minor in the same transaction.",
+      "evidence_ref": "cases/C05/candidate.sql: ALTER TABLE payments DROP COLUMN amount_minor"
+    },
+    {
+      "statement": "The case declares a v1 application that reads and writes amount_minor.",
+      "evidence_ref": "cases/C05/case.yaml: app_versions v1"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Every application instance writing amount_minor has been replaced before this migration runs.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C05/candidate.sql",
+        "cases/C05/case.yaml"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-COMPAT-001",
+      "description": "Both application versions preserve declared semantics during rollout.",
+      "blocking_class": "blocking",
+      "executable_check": "Run each live version's declared statements against the migrated schema."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

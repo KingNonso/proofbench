@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["interruption:resume-is-a-no-op"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-IDEM-001 failed in world interruption: resuming the backfill changed disbursements: 6 row(s) became 10"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

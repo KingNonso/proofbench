@@ -1,4 +1,4 @@
-schema_version: "1.0"
+schema_version: "1.1"
 case_id: C04
 title: Backfill a missing currency and make the column NOT NULL
 
@@ -24,7 +24,7 @@ candidate:
 visible_tests:
   - cases/C04/visible_tests/001_currency_not_null.sql
 
-policy_path: cases/C04/policy.yaml
+policy_path: policies/base-policy.yaml
 
 allowed_agent_tools:
   - read_file

@@ -1,0 +1,52 @@
+schema_version: "1.1"
+case_id: C07
+title: Rewrite payments to add a non-null column with a volatile default
+
+description: >
+  The migration adds a NOT NULL column whose default is a volatile expression,
+  which forces PostgreSQL to rewrite the whole table under an ACCESS EXCLUSIVE
+  lock. On an idle database it finishes instantly. Behind any open transaction
+  it waits, and everything behind it waits too.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C07/candidate.sql
+  rollback_path: null
+
+visible_tests:
+  - cases/C07/visible_tests/001_token_present.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - locks
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000
+
+# A concurrent reader holds its lock while the rewrite tries to take
+# ACCESS EXCLUSIVE. PostgreSQL decides the outcome, not a stopwatch.
+lock_probe:
+  target_table: payments
+  statement: >
+    ALTER TABLE payments
+    ADD COLUMN reconciliation_token uuid NOT NULL DEFAULT gen_random_uuid()
+  role: aidledger_migration

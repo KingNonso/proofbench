@@ -1,0 +1,283 @@
+# Shared AidLedger policy, schema 1.1.
+#
+# One policy for all twelve cases. Per-case copies would drift: a probe fixed in
+# one case and not another would make two cases disagree about what the tenant
+# boundary is, and the benchmark would be measuring its own inconsistency.
+#
+# Cases differ in their candidate migration and in which worlds they require,
+# not in what the system is supposed to guarantee.
+#
+# Tenants: 1111... is Northwind Relief, 2222... is Southgate Aid.
+schema_version: "1.1"
+policy_id: aidledger-default
+version: 2
+
+roles:
+  - name: aidledger_app
+    description: Tenant worker; the running application
+    tenant_scoped: true
+  - name: aidledger_org_admin
+    description: Organisation administrator; wider read within its own organisation
+    tenant_scoped: true
+  - name: aidledger_auditor
+    description: Auditor; read-only access to its own organisation's history
+    tenant_scoped: true
+  - name: aidledger_service
+    description: Background settlement and backfill process
+    tenant_scoped: true
+
+invariants:
+  - id: INV-RLS-001
+    description: No session may read rows belonging to an organisation other than its own
+    blocking: true
+  - id: INV-RLS-002
+    description: Every declared role retains the access the policy grants it
+    blocking: true
+  - id: INV-RLS-003
+    description: No declared role gains access the policy does not grant it
+    blocking: true
+  - id: INV-MONEY-001
+    description: Minor-unit values are exact; no conversion may change a total
+    blocking: true
+  - id: INV-MONEY-002
+    description: >
+      A currency backfill matches the recorded domain ruling in both value and
+      scope, and touches no row the ruling does not cover
+    blocking: true
+
+# Both directions are probed. A world that only checked that permitted access
+# still works would pass a migration that granted the world to everyone.
+  - id: INV-IDEM-001
+    description: An interrupted and resumed backfill neither loses nor duplicates effects
+    blocking: true
+  - id: INV-IDEM-002
+    description: A retried disbursement with the same idempotency key settles once
+    blocking: true
+  - id: INV-COMPAT-001
+    description: Both application versions preserve declared semantics during rollout
+    blocking: true
+  - id: INV-LOCK-001
+    description: No migration statement exceeds the declared lock budget
+    blocking: true
+  - id: INV-ROLLBACK-001
+    description: Rollback preserves writes committed after the migration began
+    blocking: true
+  - id: INV-AUDIT-001
+    description: Audit events remain present, append-only, attributable, and tenant-scoped
+    blocking: true
+
+rls_probes:
+  # --- aidledger_app -------------------------------------------------------
+  - probe_id: app-select-own
+    invariant_id: INV-RLS-002
+    description: The application must still read its own organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 3
+
+  - probe_id: app-select-other
+    invariant_id: INV-RLS-001
+    description: The application must never read another organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: app-update-other
+    invariant_id: INV-RLS-001
+    description: The application must never update another organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: UPDATE
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: app-delete-own
+    invariant_id: INV-RLS-003
+    description: The application was never granted DELETE on payments
+    role: aidledger_app
+    table: payments
+    operation: DELETE
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
+
+  # --- aidledger_org_admin -------------------------------------------------
+  - probe_id: orgadmin-select-own
+    invariant_id: INV-RLS-002
+    description: The organisation administrator must still read its own payments
+    role: aidledger_org_admin
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 2
+
+  - probe_id: orgadmin-select-other
+    invariant_id: INV-RLS-001
+    description: The organisation administrator must never read another organisation's payments
+    role: aidledger_org_admin
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: orgadmin-insert-own
+    invariant_id: INV-RLS-003
+    description: The organisation administrator was never granted INSERT on payments
+    role: aidledger_org_admin
+    table: payments
+    operation: INSERT
+    scope: own
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
+
+  # --- aidledger_service ---------------------------------------------------
+  - probe_id: service-select-own
+    invariant_id: INV-RLS-002
+    description: The settlement process must still read its own organisation's payments
+    role: aidledger_service
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 3
+
+  - probe_id: service-select-other
+    invariant_id: INV-RLS-001
+    description: The settlement process must never read another organisation's payments
+    role: aidledger_service
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  # --- aidledger_auditor ---------------------------------------------------
+  - probe_id: auditor-select-own-audit
+    invariant_id: INV-RLS-002
+    description: The auditor must retain read access to its own organisation's history
+    role: aidledger_auditor
+    table: audit_events
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [event_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 2
+
+  - probe_id: auditor-select-other-audit
+    invariant_id: INV-RLS-001
+    description: The auditor must never read another organisation's history
+    role: aidledger_auditor
+    table: audit_events
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [event_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: auditor-select-payments
+    invariant_id: INV-RLS-003
+    description: The auditor was never granted access to payments
+    role: aidledger_auditor
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
+
+lock:
+  # Configures a session lock_timeout, so PostgreSQL produces the verdict as
+  # SQLSTATE 55P03. Measured wall time is evidence, never the decision input.
+  budget_ms: 250
+  disallowed_modes:
+    - ACCESS EXCLUSIVE
+
+money:
+  minor_units_only: true
+  allow_float_conversion: false
+
+migration_capabilities:
+  allow_create_role: false
+  allow_alter_system: false
+  allow_create_tablespace: false
+  allow_copy_program: false
+  allow_untrusted_languages: false
+  allowed_extensions: []

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C08",
+  "rationale": "The backup is a snapshot, and the assumption is that nothing happens after it. A production rollback happens hours later. Writing after the migration and then rolling back settles it.",
+  "entries": [
+    {
+      "world": "rollback",
+      "threatened_invariants": [
+        "INV-ROLLBACK-001"
+      ],
+      "rationale": "Commits a payment after the migration, runs the declared rollback, and looks for the row.",
+      "parameters": {},
+      "expected_evidence": "Whether the post-migration payment survives the rollback.",
+      "timeout_seconds": 120
+    }
+  ]
+}

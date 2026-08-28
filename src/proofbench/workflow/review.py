@@ -49,6 +49,8 @@ from proofbench.worlds.runner import (
     prepare_world_database,
     run_required_worlds,
     run_visible_tests,
+    snapshot_audit,
+    snapshot_disbursements,
     snapshot_payments,
 )
 
@@ -160,6 +162,8 @@ def review_case(
         # left behind.
         base_clone = sandbox.clone("snapshot")
         pre_state = snapshot_payments(sandbox, base_clone)
+        pre_audit = snapshot_audit(sandbox, base_clone)
+        pre_disbursements = snapshot_disbursements(sandbox, base_clone)
 
         if contract is not None and has_unresolved_authority(contract, ruling):
             question = contract.unresolved_authority()[0]
@@ -179,7 +183,8 @@ def review_case(
                 },
             )
 
-        database = prepare_world_database(sandbox, loaded, "rls")
+        first_world = loaded.case.worlds.required[0].value
+        database = prepare_world_database(sandbox, loaded, first_world)
         visible = run_visible_tests(sandbox, database, loaded)
         writer.emit(
             EventType.CHECK_COMPLETED,
@@ -196,9 +201,11 @@ def review_case(
                 loaded,
                 run_id=run_id,
                 trace=writer,
-                database_by_world={"rls": database},
+                database_by_world={first_world: database},
                 compiled_ruling=compiled,
                 pre_state=pre_state,
+                pre_audit=pre_audit,
+                pre_disbursements=pre_disbursements,
             )
         else:
             # Worlds whose invariants the open question governs would be

@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["money:settled-once"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-IDEM-002 failed in world money: 1 payment(s) were settled more than once by the migration"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

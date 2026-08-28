@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["audit:events-still-present","audit:events-unaltered"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-AUDIT-001 failed in world audit: the migration changed audit history"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

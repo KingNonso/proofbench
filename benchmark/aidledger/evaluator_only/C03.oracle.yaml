@@ -1,0 +1,17 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C03
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-MONEY-001
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  The re-denomination goes through double precision. 0.01 has no exact binary
+  form, so the cast truncates on the rows where the product lands just below
+  an integer. Every row keeps a plausible positive integer and every
+  constraint holds; the totals are wrong. Only an exact integer comparison of
+  before and after finds it.

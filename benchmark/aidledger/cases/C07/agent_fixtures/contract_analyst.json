@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C07",
+  "summary": "The migration adds a NOT NULL column whose default is gen_random_uuid. A volatile default forces PostgreSQL to rewrite the table, which holds ACCESS EXCLUSIVE for the duration.",
+  "facts": [
+    {
+      "statement": "The migration adds reconciliation_token NOT NULL DEFAULT gen_random_uuid().",
+      "evidence_ref": "cases/C07/candidate.sql: ADD COLUMN reconciliation_token"
+    },
+    {
+      "statement": "gen_random_uuid is volatile, so the default cannot be stored as metadata.",
+      "evidence_ref": "cases/C07/candidate.sql: the DEFAULT expression"
+    },
+    {
+      "statement": "The declared lock budget is 250ms.",
+      "evidence_ref": "policies/base-policy.yaml: lock.budget_ms"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Adding a column with a default is a metadata-only operation on this table.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C07/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-LOCK-001",
+      "description": "No migration statement exceeds the declared lock budget.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare pg_relation_filenode across the statement; a changed filenode is a full table rewrite."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

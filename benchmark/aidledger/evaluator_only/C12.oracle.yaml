@@ -1,0 +1,17 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C12
+case_class: safe
+expected_initial_state: READY_FOR_REVIEW
+
+expected_blocking_invariant_ids:
+  []
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  The challenging case nominated for the submission. Correct in seven
+  independent ways at once -- metadata-only add, nothing dropped,
+  deterministic and repeatable backfill, a rollback that drops rather than
+  restores, untouched audit history, and an intact tenant boundary. Every one
+  of them is checked by a different world, and all seven must pass.

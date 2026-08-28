@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C11",
+  "rationale": "Nothing here looks wrong, which is exactly when a control case earns its place: the worlds must be able to pass as well as fail.",
+  "entries": [
+    {
+      "world": "rls",
+      "threatened_invariants": [
+        "INV-RLS-001"
+      ],
+      "rationale": "The table is tenant-scoped, so the boundary is re-checked.",
+      "parameters": {},
+      "expected_evidence": "Rows each role reached across tenants.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "money",
+      "threatened_invariants": [
+        "INV-MONEY-001"
+      ],
+      "rationale": "Confirms no amount moved during the backfill.",
+      "parameters": {},
+      "expected_evidence": "Amounts before and after in integer minor units.",
+      "timeout_seconds": 120
+    }
+  ]
+}

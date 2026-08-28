@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C12",
+  "rationale": "This migration is careful in several independent ways, and each of them can only be confirmed by the world that tests it. Running all seven is the point of the case.",
+  "entries": [
+    {
+      "world": "rls",
+      "threatened_invariants": [
+        "INV-RLS-001"
+      ],
+      "rationale": "The table is tenant-scoped.",
+      "parameters": {},
+      "expected_evidence": "Cross-tenant rows reached, if any.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "money",
+      "threatened_invariants": [
+        "INV-MONEY-001"
+      ],
+      "rationale": "Confirms no amount moved.",
+      "parameters": {},
+      "expected_evidence": "Amounts before and after.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "rolling",
+      "threatened_invariants": [
+        "INV-COMPAT-001"
+      ],
+      "rationale": "Both versions stay live during the rollout.",
+      "parameters": {},
+      "expected_evidence": "Whether each version's statements succeed.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "interruption",
+      "threatened_invariants": [
+        "INV-IDEM-001"
+      ],
+      "rationale": "The backfill claims to be resumable.",
+      "parameters": {},
+      "expected_evidence": "Observable state after a repeated backfill.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "rollback",
+      "threatened_invariants": [
+        "INV-ROLLBACK-001"
+      ],
+      "rationale": "The rollback drops rather than restores.",
+      "parameters": {},
+      "expected_evidence": "Whether a post-migration write survives.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "locks",
+      "threatened_invariants": [
+        "INV-LOCK-001"
+      ],
+      "rationale": "The add claims to be metadata-only.",
+      "parameters": {},
+      "expected_evidence": "Relation filenode before and after.",
+      "timeout_seconds": 120
+    },
+    {
+      "world": "audit",
+      "threatened_invariants": [
+        "INV-AUDIT-001"
+      ],
+      "rationale": "Confirms history is untouched.",
+      "parameters": {},
+      "expected_evidence": "Audit events before and after.",
+      "timeout_seconds": 120
+    }
+  ]
+}

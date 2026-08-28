@@ -232,3 +232,51 @@ Gate R2 evidence: `tests/golden/C01` carries `contract.json`, `world-plan.json`
 and `remediation.json`; `tests/golden/C04` carries `ruling-packet.json` and
 `ruling-packet.md`.
 
+### 2026-08-28 — Release gate R3 closed: all twelve cases, all seven worlds
+
+227 tests pass. Every case reaches its registered state and every golden
+certificate reproduces offline.
+
+**One shared policy instead of twelve copies.** Per-case policies would drift: a
+probe fixed in one case and not another would make two cases disagree about what
+the tenant boundary is, and the benchmark would be measuring its own
+inconsistency. Cases differ in their candidate and their required worlds, not in
+what the system is supposed to guarantee.
+
+**Redesigned the lock world, because the first design was wrong.** It held a
+conflicting lock and asserted SQLSTATE 55P03 — which condemned the *correct*
+migration too, since every `ALTER TABLE` blocks behind an open reader. The
+discriminating fact is not whether a statement takes an exclusive lock but
+whether it rewrites the table, and PostgreSQL reports that exactly as a changed
+relation filenode. That is identical on every machine and independent of fixture
+size, which a stopwatch could never be. C07 rewrites; C12 does not.
+
+**A rollback that cannot run is a finding, not an evidence failure.** C08's
+rollback initially died on a foreign key, and the world reported it as broken
+machinery. The rollback script is the artifact under test: if it raises, that is
+a finding about the candidate, and the worst kind, because nobody discovers it
+until they already needed it. The world now distinguishes a failing rollback
+script from a failure to reach the database.
+
+**The post-migration write had to become per-case.** The rollback world wrote a
+hardcoded payment, which violated the NOT NULL column C08's migration had just
+added. A realistic write uses the schema the migration just produced, so it is
+declared per case.
+
+**C04 cannot be caught without the agents, and that is correct.** Run with
+`--no-agents`, C04 reaches `READY_FOR_REVIEW`: no deterministic check can fail,
+because every amount is preserved and every constraint holds. Recognising that a
+business fact is unknowable requires the Contract Analyst. The deterministic path
+is a reduced mode, not the whole product.
+
+**Every unsafe candidate passes its own visible test.** That was designed, and
+each case was checked for it. A case whose defect the obvious check already
+catches would not be testing anything the deployment timeline adds.
+
+New worlds: `rolling` runs each live version's declared statements; `interruption`
+re-runs the backfill, which is what a resumed deploy does; `rollback` commits a
+write and then rolls back; `locks` compares relation filenodes; `audit` compares
+recorded events by id and content. `money` gained duplicate-settlement detection,
+because the unique constraint on (org_id, idempotency_key) is satisfied by a retry
+that mints a fresh key while paying the beneficiary twice.
+

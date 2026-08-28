@@ -1,4 +1,4 @@
-schema_version: "1.0"
+schema_version: "1.1"
 case_id: C01
 title: Recreate payments to add a settlement reference
 
@@ -22,7 +22,7 @@ candidate:
 visible_tests:
   - cases/C01/visible_tests/001_schema_shape.sql
 
-policy_path: cases/C01/policy.yaml
+policy_path: policies/base-policy.yaml
 
 allowed_agent_tools:
   - read_file

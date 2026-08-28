@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["rls:orgadmin-select-own"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-RLS-002 failed in world rls: aidledger_org_admin lost required SELECT access to payments"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

@@ -63,38 +63,41 @@ Honest build state. Nothing is described as working before its artifact exists
 
 | Capability | State |
 | --- | --- |
-| Phase 0 evidence: brief delta, provenance, 12-case map | **Built** |
-| Project toolchain, standards, CI (static, unit, docker) | **Built** |
-| Typed intake: case and policy schemas, contained paths, input hashing | **Built** |
+| Phase 0 evidence, toolchain, standards, CI | **Built** |
+| Typed intake, contained paths, input hashing | **Built** |
 | Disposable PostgreSQL sandbox, restricted migration role, database-per-world | **Built** |
-| Tenant isolation world; money world (currency scope) | **Built** |
+| All seven worlds: rls, money, rolling, interruption, rollback, locks, audit | **Built** |
 | Decision policy, confirmed blast radius, trace and validator | **Built** |
 | Certificate in JSON, Markdown, HTML; manifest, bundle root, offline replay | **Built** |
-| Oracle process boundary and `OracleSpec` | **Built** |
+| Oracle process boundary and `OracleSpec` for all twelve cases | **Built** |
 | Three agents behind a mediated tool router, with `FakeProvider` | **Built** |
-| Bounded correction loop (one attempt, clean rerun) | **Built** |
-| Human authority gate: ruling packet, executable ruling (C04) | **Built** |
+| Bounded correction loop; human authority gate with executable rulings | **Built** |
+| All twelve pre-registered cases | **Built** |
 | Live model provider | Not built |
-| Rolling, interruption, rollback, lock, and audit worlds | Not built |
-| Cases C02, C03, C05 through C12 | Not built |
 | Fair direct-review baseline and paired evaluation | Not built |
 
-**Release gates R1 and R2 are closed.**
+**Release gates R1, R2 and R3 are closed.** All twelve cases reach their
+registered state with no network call, and all twelve golden certificates
+reproduce offline.
 
-*C01* goes from `case.yaml` to `BLOCKED` with no network call. The visible schema
-test passes; the tenant isolation world observes two Southgate payment rows from
-a Northwind session; the blast radius names role, tenant, operation and row keys.
-The Remediation Engineer proposes a correction that passes the same world on a
-clean database — and the decision stays `BLOCKED`, because the decision is about
-the candidate that was submitted.
+| Case | Defect or property | State | Caught by |
+| --- | --- | --- | --- |
+| C01 | Recreates `payments` without restoring row-level security | `BLOCKED` | `rls` |
+| C02 | Restores the application policy but not the organisation admin's | `BLOCKED` | `rls` |
+| C03 | Re-denominates money through floating point | `BLOCKED` | `money` |
+| C04 | Backfills a currency the data never recorded | `DOMAIN_RULING_REQUIRED` | authority gate |
+| C05 | Drops a column the running version still writes | `BLOCKED` | `rolling` |
+| C06 | Backfill with no checkpoint duplicates on resume | `BLOCKED` | `interruption` |
+| C07 | Volatile default forces a full table rewrite | `BLOCKED` | `locks` |
+| C08 | Rollback restores a snapshot and discards later writes | `BLOCKED` | `rollback` |
+| C09 | Retry mints a new idempotency key and pays twice | `BLOCKED` | `money` |
+| C10 | Deletes audit events while adding a retention column | `BLOCKED` | `audit` |
+| C11 | Correct expand and backfill — safe control | `READY_FOR_REVIEW` | all pass |
+| C12 | Correct across all seven worlds — challenging case | `READY_FOR_REVIEW` | all pass |
 
-*C04* returns `DOMAIN_RULING_REQUIRED` with a ruling packet: the exact question,
-the two rows it affects, both readings, and what each costs if wrong. The gate is
-a question rather than a veto — a ruling of "USD" lets the candidate through, a
-ruling of "per organisation" blocks it on `INV-MONEY-002`. Neither can override a
-failure the database already demonstrated.
-
-`make replay` reproduces both committed golden bundles offline.
+Every one of the nine unsafe candidates passes its own visible test. That is the
+point of the benchmark: none of them is caught by the check a reviewer would
+naturally run.
 
 `make baseline` and `make evaluate` still exit non-zero with `EVIDENCE_NOT_BUILT`
 until there is committed evidence for them to verify. That is deliberate: a

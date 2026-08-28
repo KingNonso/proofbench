@@ -52,8 +52,8 @@ def test_case_pointing_into_the_oracle_is_rejected(c01_case, tmp_path):
     case_file = copy / "cases" / "C01" / "case.yaml"
     case_file.write_text(
         case_file.read_text().replace(
-            "policy_path: cases/C01/policy.yaml",
-            "policy_path: evaluator_only/oracle.yaml",
+            "policy_path: policies/base-policy.yaml",
+            "policy_path: evaluator_only/C01.oracle.yaml",
         )
     )
     with pytest.raises(OracleBoundaryError):
@@ -65,7 +65,7 @@ def test_policy_referencing_an_undeclared_role_is_rejected(c01_case, tmp_path):
     # which is the quietest way for a tenant isolation check to pass.
     copy = tmp_path / "aidledger"
     shutil.copytree(c01_case.parents[2], copy, symlinks=True)
-    policy = copy / "cases" / "C01" / "policy.yaml"
+    policy = copy / "policies" / "base-policy.yaml"
     policy.write_text(policy.read_text().replace("role: aidledger_app", "role: ghost_role", 1))
     with pytest.raises(CaseValidationError, match="not declared"):
         load_case(copy / "cases" / "C01" / "case.yaml")

@@ -1,0 +1,1 @@
+{"confirmed":[],"decisive_check_ids":["locks:no-table-rewrite"],"evidence_complete":true,"external_state":"BLOCKED","policy_version":1,"possible":[],"reasons":["INV-LOCK-001 failed in world locks: the statement rewrites payments, holding ACCESS EXCLUSIVE for the whole rewrite"],"required_action":"Correct the candidate migration and re-run.","schema_version":"1.0"}

@@ -68,7 +68,7 @@ def test_a_changed_candidate_fails_replay(golden, bench, tmp_path):
 def test_a_changed_policy_fails_replay(golden, bench, tmp_path):
     working = tmp_path / "aidledger"
     shutil.copytree(bench, working, symlinks=True)
-    policy = working / "cases" / "C01" / "policy.yaml"
+    policy = working / "policies" / "base-policy.yaml"
     policy.write_text(policy.read_text().replace("budget_ms: 250", "budget_ms: 500"))
 
     assert not replay(golden, benchmark_root=working).ok

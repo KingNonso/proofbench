@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C05",
+  "rationale": "Dropping a column is safe only once nothing writes it, and that is a property of the rollout rather than of the schema. Only running both live versions against the migrated database shows it.",
+  "entries": [
+    {
+      "world": "rolling",
+      "threatened_invariants": [
+        "INV-COMPAT-001"
+      ],
+      "rationale": "Runs each declared version's statements against the migrated schema as the role that version uses.",
+      "parameters": {},
+      "expected_evidence": "Per statement: whether it succeeded, and the SQLSTATE if it did not.",
+      "timeout_seconds": 120
+    }
+  ]
+}

@@ -6,7 +6,7 @@ from proofbench.domain.case import CaseSpec, PolicySpec, ProbeOutcome, WorldName
 
 def minimal_case(**overrides):
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "case_id": "C01",
         "title": "t",
         "description": "d",

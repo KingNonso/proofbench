@@ -26,16 +26,23 @@ WORLD_CATALOG = """\
 Available worlds. Select only from this list.
 
 - rls           tenant and role isolation: executes the declared role-by-tenant
-                access matrix and inspects active policies. Implemented.
-- money         exact minor-unit conversion, conservation, idempotency. Implemented
-                for currency-evidence checks.
-- rolling       interleaves old and new application versions across stages. Not yet
-                implemented; selecting it will produce no evidence.
-- interruption  fails a backfill at a checkpoint and resumes. Not yet implemented.
-- rollback      writes after migration start, then rolls back. Not yet implemented.
-- locks         measures blocking operations against the lock budget. Not yet implemented.
-- audit         proves audit history remains append-only and attributable. Not yet
-                implemented.
+                access matrix and inspects active policies.
+- money         exact minor-unit conversion, value conservation, one settlement
+                per payment, and any compiled currency ruling.
+- rolling       runs each live application version's declared statements against
+                the migrated schema.
+- interruption  re-runs the declared backfill, which is what a resumed deploy
+                does, and requires the observable state to be unchanged.
+- rollback      commits a write after the migration, runs the declared rollback,
+                and requires the write to survive.
+- locks         compares the relation filenode across the statement; a changed
+                filenode means a full table rewrite under ACCESS EXCLUSIVE.
+- audit         compares recorded audit events before and after by id and content.
+
+A world only produces evidence if the case declares what it needs: rolling needs
+app_versions, interruption needs a backfill, rollback needs a rollback script and
+a post-migration write, locks needs a lock probe. Selecting a world the case does
+not configure yields an evidence error, not a pass.
 """
 
 

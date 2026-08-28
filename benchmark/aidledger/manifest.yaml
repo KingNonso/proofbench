@@ -3,20 +3,68 @@
 # This file also marks the benchmark root: it is the directory every declared
 # case path is resolved against, and nothing outside it can be resolved at all.
 #
-# Cases are added as they are built. Case hashes are frozen before the final
-# experiment (PRD section 8.2); an unfrozen case is marked as such rather than
-# carrying a placeholder hash that would look authoritative.
+# Twelve pre-registered cases. Nine are known unsafe, one requires domain
+# authority, and two are safe controls, so a system that rejected everything
+# could not score well. Expected states live in evaluator_only and are not
+# readable from here.
 
 schema_version: "1.0"
 benchmark_id: aidledger
 description: >
   Twelve pre-registered PostgreSQL migrations against a synthetic multi-tenant
-  cash-assistance system. Nine are known unsafe, one requires domain authority,
-  and two are safe controls so that rejecting everything cannot score well.
+  cash-assistance system, each defective or correct in a way that a final-schema
+  diff cannot settle.
 
 cases:
   - case_id: C01
     path: cases/C01/case.yaml
+    title: Recreate payments to add a settlement reference
+    frozen: false
+  - case_id: C02
+    path: cases/C02/case.yaml
+    title: Restore payments policies for the application role only
+    frozen: false
+  - case_id: C03
+    path: cases/C03/case.yaml
+    title: Re-denominate payment amounts through a floating point conversion
+    frozen: false
+  - case_id: C04
+    path: cases/C04/case.yaml
+    title: Backfill a missing currency and make the column NOT NULL
+    frozen: false
+  - case_id: C05
+    path: cases/C05/case.yaml
+    title: Drop the old amount column after adding a scaled replacement
+    frozen: false
+  - case_id: C06
+    path: cases/C06/case.yaml
+    title: Backfill disbursements for settled payments without recording progress
+    frozen: false
+  - case_id: C07
+    path: cases/C07/case.yaml
+    title: Rewrite payments to add a non-null column with a volatile default
+    frozen: false
+  - case_id: C08
+    path: cases/C08/case.yaml
+    title: Split payment status into a lookup table, with a rollback that restores the old table
+    frozen: false
+  - case_id: C09
+    path: cases/C09/case.yaml
+    title: Settle approved payments through a retried dual-write path
+    frozen: false
+  - case_id: C10
+    path: cases/C10/case.yaml
+    title: Compact audit history while adding a retention column
+    frozen: false
+  - case_id: C11
+    path: cases/C11/case.yaml
+    title: Add a nullable settlement reference by expand, backfill, verify and contract
+    frozen: false
+  - case_id: C12
+    path: cases/C12/case.yaml
+    title: Introduce a reconciliation column across a rolling deploy, with a safe rollback
     frozen: false
 
-# C02 through C12 are specified in docs/aidledger-case-map.md and added as built.
+# frozen: false until the case hashes are recorded before the final experiment
+# (PRD section 8.2). An unfrozen case is marked as such rather than carrying a
+# placeholder hash that would look authoritative.

@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C02",
+  "summary": "The migration recreates payments and restores ENABLE, FORCE and the application policy. It does not restore the organisation-administrator read policy, and the auditor's access to its own history is not re-established either. The application path works.",
+  "facts": [
+    {
+      "statement": "The migration recreates payments and restores row-level security for the application role.",
+      "evidence_ref": "cases/C02/candidate.sql: ALTER TABLE payments ENABLE ROW LEVEL SECURITY and payments_own_tenant"
+    },
+    {
+      "statement": "The migration creates two policies on payments: maintenance and own-tenant.",
+      "evidence_ref": "cases/C02/candidate.sql: CREATE POLICY statements"
+    },
+    {
+      "statement": "The base policy file declares an organisation-administrator read policy on payments that the migration does not recreate.",
+      "evidence_ref": "policies/001_rls.sql: payments_org_admin_read"
+    },
+    {
+      "statement": "The visible test checks that row-level security is enabled and that at least two policies exist.",
+      "evidence_ref": "cases/C02/visible_tests/001_schema_and_rls.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Restoring the policy the application uses is sufficient to restore the tenant boundary for every declared role.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C02/candidate.sql",
+        "policies/001_rls.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-RLS-002",
+      "description": "Every declared role retains the access the policy grants it.",
+      "blocking_class": "blocking",
+      "executable_check": "Connect as each declared role and confirm its own-tenant access still succeeds."
+    },
+    {
+      "id": "INV-RLS-001",
+      "description": "No session may read rows belonging to an organisation other than its own.",
+      "blocking_class": "blocking",
+      "executable_check": "Run the declared role-by-tenant access matrix after the migration and require zero cross-tenant rows."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

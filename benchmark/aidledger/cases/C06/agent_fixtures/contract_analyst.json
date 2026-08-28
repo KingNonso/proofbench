@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C06",
+  "summary": "The migration backfills a disbursement for every settled payment. There is no checkpoint and the idempotency key is generated fresh on each row, so the statement is correct exactly once.",
+  "facts": [
+    {
+      "statement": "The backfill inserts a disbursement for every settled payment.",
+      "evidence_ref": "cases/C06/candidate.sql: INSERT INTO disbursements SELECT ... WHERE p.status = 'settled'"
+    },
+    {
+      "statement": "The idempotency key is generated with gen_random_uuid on each execution.",
+      "evidence_ref": "cases/C06/candidate.sql: 'backfill-' || gen_random_uuid()::text"
+    },
+    {
+      "statement": "There is no checkpoint table and no ON CONFLICT clause.",
+      "evidence_ref": "cases/C06/candidate.sql: full text"
+    },
+    {
+      "statement": "The visible test asserts every settled payment has at least one disbursement.",
+      "evidence_ref": "cases/C06/visible_tests/001_settled_have_disbursements.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "The backfill will run exactly once and will not be interrupted.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C06/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-IDEM-001",
+      "description": "An interrupted and resumed backfill neither loses nor duplicates effects.",
+      "blocking_class": "blocking",
+      "executable_check": "Re-run the backfill and require the observable state to be unchanged."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

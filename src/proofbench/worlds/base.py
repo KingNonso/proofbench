@@ -13,7 +13,13 @@ from abc import ABC, abstractmethod
 from pydantic import Field
 
 from proofbench.domain.base import StrictModel
-from proofbench.domain.case import RlsProbeSpec
+from proofbench.domain.case import (
+    AppStatement,
+    AppVersion,
+    BackfillSpec,
+    LockProbeSpec,
+    RlsProbeSpec,
+)
 from proofbench.domain.evidence import WorldResult
 from proofbench.domain.ruling import CompiledRuling
 
@@ -45,8 +51,31 @@ class PaymentSnapshotRow(StrictModel):
     amount_minor: int
 
 
+class DisbursementSnapshotRow(StrictModel):
+    """One settled disbursement as it stood before the candidate applied."""
+
+    disbursement_id: str
+    payment_id: str
+    amount_minor: int
+
+
+class AuditSnapshotRow(StrictModel):
+    """One audit event as it stood before the candidate applied."""
+
+    event_id: int
+    org_id: str
+    actor_role: str
+    action: str
+    entity_id: str
+
+
 class WorldRequest(StrictModel):
-    """Everything a world needs, and nothing it does not."""
+    """Everything a world needs, and nothing it does not.
+
+    Wide rather than generic on purpose. A world receives the configuration its
+    own checks require and nothing else, so reading the request tells you what
+    that world can possibly do.
+    """
 
     world: str
     run_id: str
@@ -58,6 +87,14 @@ class WorldRequest(StrictModel):
     targets: list[ProbeTarget] = Field(default_factory=list)
     compiled_ruling: CompiledRuling | None = None
     pre_state: list[PaymentSnapshotRow] = Field(default_factory=list)
+    pre_audit: list[AuditSnapshotRow] = Field(default_factory=list)
+    pre_disbursements: list[DisbursementSnapshotRow] = Field(default_factory=list)
+    app_versions: list[AppVersion] = Field(default_factory=list)
+    backfill: BackfillSpec | None = None
+    lock_probe: LockProbeSpec | None = None
+    lock_budget_ms: int = Field(default=250, gt=0)
+    rollback_sql: str | None = None
+    post_migration_write: AppStatement | None = None
     deadline_seconds: int = Field(gt=0)
 
     def dsn(self, user: str) -> str:

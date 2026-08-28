@@ -66,7 +66,7 @@ Semantic digest: `1beb7ffe586dd1747a21ab945c84202471501dfa5544c4a789fc1b635fec20
 
 ## Trajectory
 
-18 events, root `8c96eedd5d8547fd`.
+18 events, root `932c77e26ccc4770`.
 
 1. [ingest] reviewing C01: Recreate payments to add a settlement reference
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -97,7 +97,7 @@ Semantic digest: `1beb7ffe586dd1747a21ab945c84202471501dfa5544c4a789fc1b635fec20
 | Resolved image id | `sha256:43064e70a75c153a0ea5abed66b08e2981b7b43088bd59fb4b9f1a20ae4b62b0` |
 | Time zone | UTC |
 
-Inputs digest: `e48e243122447550e6c22719894539b5507085e8eb3a307c4237d924f0019700`
+Inputs digest: `6d9c33ec0c8be2a784f75a81180075e457c1e2ed4fb78c199aabd0731b1eef4d`
 Manifest: `manifest.json`
 
 ## Known limits

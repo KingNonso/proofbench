@@ -37,6 +37,8 @@ from proofbench.worlds.runner import (
     prepare_world_database,
     run_required_worlds,
     run_visible_tests,
+    snapshot_audit,
+    snapshot_disbursements,
     snapshot_payments,
 )
 
@@ -248,7 +250,10 @@ def _rerun(
     sandbox = PostgresSandbox(run_id, fixture_paths(loaded))
     try:
         sandbox.start()
-        pre_state = snapshot_payments(sandbox, sandbox.clone("replay-snapshot"))
+        snapshot_db = sandbox.clone("replay-snapshot")
+        pre_state = snapshot_payments(sandbox, snapshot_db)
+        pre_audit = snapshot_audit(sandbox, snapshot_db)
+        pre_disbursements = snapshot_disbursements(sandbox, snapshot_db)
         database = prepare_world_database(sandbox, loaded, recorded_worlds[0])
         visible = run_visible_tests(sandbox, database, loaded)
         results = run_required_worlds(
@@ -258,6 +263,8 @@ def _rerun(
             database_by_world={recorded_worlds[0]: database},
             compiled_ruling=compiled,
             pre_state=pre_state,
+            pre_audit=pre_audit,
+            pre_disbursements=pre_disbursements,
         )
     except (EvidenceIncompleteError, CaseValidationError) as exc:
         return [ReplayStep(name="rerun produced evidence", ok=False, detail=exc.message)]

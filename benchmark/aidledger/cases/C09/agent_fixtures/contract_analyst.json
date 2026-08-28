@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C09",
+  "summary": "The migration settles approved payments and issues the same insert twice as a retry. Each attempt generates a new idempotency key, so the unique constraint intended to prevent double payment is satisfied by both.",
+  "facts": [
+    {
+      "statement": "The migration issues two inserts into disbursements for the same set of approved payments.",
+      "evidence_ref": "cases/C09/candidate.sql: two INSERT ... SELECT statements with the same WHERE clause"
+    },
+    {
+      "statement": "Each insert generates its own idempotency key.",
+      "evidence_ref": "cases/C09/candidate.sql: 'settle-attempt-1-' and 'settle-attempt-2-' with gen_random_uuid"
+    },
+    {
+      "statement": "The unique constraint is on (org_id, idempotency_key), not on payment_id.",
+      "evidence_ref": "schema/001_core.sql: disbursements UNIQUE (org_id, idempotency_key)"
+    },
+    {
+      "statement": "The visible test checks the unique constraint and that no payment is left approved.",
+      "evidence_ref": "cases/C09/visible_tests/001_approved_are_settled.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "The unique constraint on the idempotency key prevents a payment from being settled twice.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "schema/001_core.sql",
+        "cases/C09/candidate.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-IDEM-002",
+      "description": "A retried disbursement with the same idempotency key settles once.",
+      "blocking_class": "blocking",
+      "executable_check": "Count disbursements per payment before and after, and require no payment to gain a second."
+    },
+    {
+      "id": "INV-MONEY-001",
+      "description": "Minor-unit values are exact; no conversion may change a total.",
+      "blocking_class": "blocking",
+      "executable_check": "Compare amount_minor per payment before and after in integer minor units."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

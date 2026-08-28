@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C08",
+  "summary": "The migration normalises payment status and keeps a backup table so the change can be undone. The rollback restores payments from that backup, which was taken when the migration started.",
+  "facts": [
+    {
+      "statement": "The migration creates payments_backup as a copy of payments at the start.",
+      "evidence_ref": "cases/C08/candidate.sql: CREATE TABLE payments_backup AS TABLE payments"
+    },
+    {
+      "statement": "The rollback deletes every payment and reinserts from the backup.",
+      "evidence_ref": "cases/C08/rollback.sql: DELETE FROM payments; INSERT INTO payments SELECT * FROM payments_backup"
+    },
+    {
+      "statement": "The visible test checks only the forward migration.",
+      "evidence_ref": "cases/C08/visible_tests/001_status_normalised.sql"
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "No payment is written between the backup being taken and the rollback running.",
+      "safety_relevance": "blocking",
+      "evidence_checked": [
+        "cases/C08/candidate.sql",
+        "cases/C08/rollback.sql"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-ROLLBACK-001",
+      "description": "Rollback preserves writes committed after the migration began.",
+      "blocking_class": "blocking",
+      "executable_check": "Write a payment after the migration, roll back, and require the row to survive."
+    }
+  ],
+  "unknowns": [],
+  "authority_questions": []
+}

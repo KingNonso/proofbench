@@ -1,0 +1,15 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C11
+case_class: safe
+expected_initial_state: READY_FOR_REVIEW
+
+expected_blocking_invariant_ids:
+  []
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  A correct expand-and-backfill. Nullable column so no rewrite, nothing
+  dropped, and a backfill that excludes rows already holding the value. A safe
+  control: a system that rejected everything would fail here.

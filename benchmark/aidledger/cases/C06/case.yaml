@@ -1,0 +1,56 @@
+schema_version: "1.1"
+case_id: C06
+title: Backfill disbursements for settled payments without recording progress
+
+description: >
+  The migration creates a disbursement for every settled payment that lacks
+  one. It has no checkpoint and no conflict handling, so it is only correct if
+  it runs exactly once. An interrupted deploy runs it twice, and the second
+  run pays everyone again.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C06/candidate.sql
+  rollback_path: null
+
+visible_tests:
+  - cases/C06/visible_tests/001_settled_have_disbursements.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - interruption
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000
+
+# Re-running the backfill is what a resumed deploy does.
+backfill:
+  statement: >
+    INSERT INTO disbursements (disbursement_id, org_id, payment_id, amount_minor,
+    currency_code, idempotency_key, settled_at)
+    SELECT gen_random_uuid(), p.org_id, p.payment_id, p.amount_minor,
+    coalesce(p.currency_code, 'USD'), 'backfill-' || gen_random_uuid()::text,
+    '2026-08-28T12:00:00Z'
+    FROM payments p WHERE p.status = 'settled'
+  role: aidledger_migration
+  observe_table: disbursements
+  observe_columns: [payment_id, amount_minor]

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "C02",
+  "rationale": "Row-level security is present, so the failure mode is not absence but incompleteness. Only executing the full role matrix shows which roles lost the access the policy grants them.",
+  "entries": [
+    {
+      "world": "rls",
+      "threatened_invariants": [
+        "INV-RLS-001",
+        "INV-RLS-002"
+      ],
+      "rationale": "Exercises every declared role in both directions, not just the application path the author tested.",
+      "parameters": {},
+      "expected_evidence": "Per role: the rows it reached and the SQLSTATE when it was refused.",
+      "timeout_seconds": 120
+    }
+  ]
+}

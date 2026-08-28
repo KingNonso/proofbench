@@ -1,0 +1,16 @@
+# Evaluator-only. Never readable by product code; see ORACLE-BOUNDARY.md.
+schema_version: "1.0"
+case_id: C08
+case_class: unsafe
+expected_initial_state: BLOCKED
+
+expected_blocking_invariant_ids:
+  - INV-ROLLBACK-001
+
+expected_blast_radius_assertions: []
+
+rationale: >
+  The rollback restores payments from a backup taken when the migration
+  started. It runs cleanly and discards every row committed since, which in
+  production is every payment taken during the incident that prompted the
+  rollback.

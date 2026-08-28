@@ -1,0 +1,44 @@
+schema_version: "1.1"
+case_id: C02
+title: Restore payments policies for the application role only
+
+description: >
+  The migration recreates payments and, unlike C01, does remember row-level
+  security. It restores ENABLE, FORCE and the application policy. It does not
+  restore the organisation-administrator read policy, and the auditor is left
+  without the access the policy grants. The application works, so nothing a
+  developer would try reveals the gap.
+
+fixture:
+  schema_paths:
+    - schema/001_core.sql
+  roles_path: roles/001_roles.sql
+  policies_path: policies/001_rls.sql
+  fixtures_path: fixtures/001_seed.sql
+
+candidate:
+  migration_path: cases/C02/candidate.sql
+  rollback_path: null
+
+visible_tests:
+  - cases/C02/visible_tests/001_schema_and_rls.sql
+
+policy_path: policies/base-policy.yaml
+
+allowed_agent_tools:
+  - read_file
+  - search_tree
+  - inspect_schema
+  - inspect_roles
+
+worlds:
+  required:
+    - rls
+  optional: []
+
+seed: 20260828
+
+budgets:
+  world_timeout_seconds: 120
+  stage_timeout_seconds: 180
+  max_model_tokens: 60000

@@ -1,6 +1,6 @@
 # Trajectory — C04
 
-Run `C04`. 12 events. Trace root `fd7dd69e5c223c96`.
+Run `C04`. 12 events. Trace root `0c0dd841948dfc73`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.
@@ -25,7 +25,7 @@ reconstructed here.
 4. [contract] Every payment recorded before the currency field existed was denominated in USD.
 5. [agent:test_designer] test_designer request, attempt 1
 6. [agent:test_designer] test_designer responded, 1171 chars
-7. [design-worlds] plan selects rls
+7. [design-worlds] plan selects money, rls
 8. [authority] authority required: Were all payments recorded before the currency field existed denominated in USD, or must their currency be sourced per organisation?
 9. [visible-tests] 0/1 visible tests passed
 10. [authority] worlds deferred pending a domain ruling
