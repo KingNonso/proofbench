@@ -46,7 +46,7 @@ Semantic digest: `276ad6e0e3658a2b3b0ea1a619bcdf53d3cf723827fab560c74f27ff0a63df
 
 ## Trajectory
 
-12 events, root `5a432395e8c553a0`.
+12 events, root `0be28d9f3e741188`.
 
 1. [ingest] reviewing C07: Rewrite payments to add a non-null column with a volatile default
 2. [agent:contract_analyst] contract_analyst request, attempt 1

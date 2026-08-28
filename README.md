@@ -78,7 +78,7 @@ Honest build state. Nothing is described as working before its artifact exists
 | Live Anthropic provider adapter | **Built**, unrun — needs a key |
 | Direct-review agent baseline (PRD-FR-002) | **Built**, unrun — needs a key |
 
-**Release gates R1 through R5 are closed.** All twelve cases reach their
+**All release gates R1 through R6 are closed.** All twelve cases reach their
 registered state with no network call, all twelve golden certificates reproduce
 offline, and the paired experiment is recorded.
 

@@ -46,7 +46,7 @@ Semantic digest: `d215c3f3718d8bead4559011fbb5b838b01cfba92bc86765fcb5b6b30982c6
 
 ## Trajectory
 
-12 events, root `7376adecca92a5fd`.
+12 events, root `4c7f1437425cf93f`.
 
 1. [ingest] reviewing C02: Restore payments policies for the application role only
 2. [agent:contract_analyst] contract_analyst request, attempt 1

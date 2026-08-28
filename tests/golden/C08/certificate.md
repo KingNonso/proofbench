@@ -46,7 +46,7 @@ Semantic digest: `ba2b0b1692c383c165c67e87723982577576a8631667f84f82b6b8ad80fb8c
 
 ## Trajectory
 
-12 events, root `1bf3020d1c71ecd2`.
+12 events, root `7116c3f9053d51dc`.
 
 1. [ingest] reviewing C08: Split payment status into a lookup table, with a rollback that restores the old table
 2. [agent:contract_analyst] contract_analyst request, attempt 1

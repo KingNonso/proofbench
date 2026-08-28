@@ -356,3 +356,38 @@ drifting from the number in the evidence.
 CI now runs all six jobs from the technical plan: static, unit, docker,
 replay, evaluation, and submission.
 
+### 2026-08-28 — Release gate R6 closed: the submission holds together
+
+273 tests pass. All twelve certificates replay. All six CI jobs are active.
+
+**The claim-lock table is now executable.** `5-min-presentation.md` §2 lists the
+sentences the video may say and the evidence each requires.
+`tests/e2e/test_claim_lock.py` is that table as tests: it checks the three agent
+artifacts exist, the decision names a decisive check, the C01 blast radius cites
+both a check and real row keys, the C04 packet carries at least two readings, the
+correction verified while the verdict stayed `BLOCKED`, every bundle has a
+manifest, the final arm beats the baseline on the same denominator, the changelog
+names a contribution and a removal with evidence, and the hot take's PRD §16
+condition holds with the README citing the cases that unlock it. A failing row
+means a sentence gets cut, not softened.
+
+That guards the failure mode most likely in a submission: a claim that was true
+when it was written and quietly stopped being true.
+
+**Kept a promise I had missed.** `docs/kickoff-delta.md` recorded three brief
+requirements the PRD did not cover. D1 (human time per task) and D2 (agent
+prompts ship) were done. D3 — naming one challenging case and explaining what it
+revealed — was not. `results/comparison.md` now generates that section, and what
+C12 revealed is not about the migration: it is that the lock world's original
+design was wrong. Nine unsafe cases can only tell you a checker fires; it takes a
+difficult *safe* case to tell you it fires for the right reason.
+
+**Certificate finish.** The stylesheet was rewritten for the document a reviewer
+actually keeps: a masthead, a first screen that leads with the verdict, tabular
+figures, a dark-mode palette, and print styles. Still local-only — no remote
+font, script, or asset — and the seven PRD-FR-060 fields still sit above the
+fold, which a test asserts rather than a comment claiming it.
+
+`submission/video-script.md` is shot by shot, with every number read from
+`results/summary.json` or a committed certificate rather than from memory.
+

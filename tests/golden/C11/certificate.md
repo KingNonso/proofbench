@@ -50,7 +50,7 @@ Semantic digest: `52d49068c43c4094fe778a30fbed5720aafa86c9632c00d7dfd7a58612cf83
 
 ## Trajectory
 
-14 events, root `2b3dfec09013bccf`.
+14 events, root `5a74efe94a094f5c`.
 
 1. [ingest] reviewing C11: Add a nullable settlement reference by expand, backfill, verify and contract
 2. [agent:contract_analyst] contract_analyst request, attempt 1

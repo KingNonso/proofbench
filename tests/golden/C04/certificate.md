@@ -37,7 +37,7 @@ Possible impact (not executed): 0
 
 ## Trajectory
 
-12 events, root `0b4579561db950e9`.
+12 events, root `1cab345479194dc0`.
 
 1. [ingest] reviewing C04: Backfill a missing currency and make the column NOT NULL
 2. [agent:contract_analyst] contract_analyst request, attempt 1

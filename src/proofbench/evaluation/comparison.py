@@ -17,6 +17,37 @@ from proofbench.tracing.hashes import canonical_json
 
 RESULTS = Path("results")
 
+CHALLENGING_CASE = "C12"
+
+# The brief asks for one challenging case and what it revealed. What C12 revealed
+# is not about the migration -- it is about the checker.
+CHALLENGING_CASE_NOTE = """\
+C12 is the challenging case. It is a *correct* migration that is correct in seven
+independent ways at once: a metadata-only column add, nothing dropped so both
+live application versions keep working, a deterministic backfill that is safe to
+resume, a rollback that drops rather than restores, untouched audit history, no
+amount moved, and an intact tenant boundary. Each of those is checked by a
+different world, and all seven must pass.
+
+**What it revealed was a bug in our own checker.** The lock world originally
+worked by holding a conflicting lock and asserting SQLSTATE 55P03 when the
+candidate statement could not acquire its own. C12 failed it. That was correct
+behaviour from the world and wrong behaviour from the design: every `ALTER TABLE`
+takes ACCESS EXCLUSIVE and therefore blocks behind any open reader, so the check
+fired on the safe migration exactly as it fired on the reckless one. A check that
+cannot distinguish them is not a check.
+
+The fix was to stop timing and start reading a fact: a table rewrite changes the
+relation's filenode and a metadata-only change does not. That distinguishes C07
+from C12 exactly, and it is identical on every machine and independent of how
+large the fixture happens to be.
+
+Without a known-good case that is *hard* to get right, the lock world would have
+shipped looking perfect -- it caught C07, which is what it was written for. Nine
+unsafe cases can only tell you a checker fires. It takes a difficult safe case to
+tell you it fires for the right reason.
+"""
+
 
 def write_raw_runs(records: list[RunRecord], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,6 +160,12 @@ def write_comparison(records: list[RunRecord], summary: dict[str, object], path:
             + " | ".join(cells)
             + " |"
         )
+
+    challenging = [r for r in records if r.case_id == CHALLENGING_CASE]
+    lines += ["", f"## The challenging case: {CHALLENGING_CASE}", ""]
+    for record in sorted(challenging, key=lambda r: r.arm):
+        lines.append(f"- `{record.arm}`: **{record.outcome}** (expected {record.expected_state})")
+    lines += ["", CHALLENGING_CASE_NOTE]
 
     lines += [
         "",

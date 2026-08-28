@@ -1,6 +1,6 @@
 # Trajectory — C08
 
-Run `C08`. 12 events. Trace root `1bf3020d1c71ecd2`.
+Run `C08`. 12 events. Trace root `7116c3f9053d51dc`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.
