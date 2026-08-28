@@ -40,8 +40,8 @@ replay: ## Re-run deterministic checks for committed golden certificates
 ## ---------------------------------------------------------------------------
 
 lint: ## Ruff format check and lint
-	uv run ruff format --check src tests
-	uv run ruff check src tests
+	uv run ruff format --check src tests scripts
+	uv run ruff check src tests scripts
 
 typecheck: ## mypy strict
 	uv run mypy src

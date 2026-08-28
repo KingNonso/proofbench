@@ -64,16 +64,25 @@ Honest build state. Nothing is described as working before its artifact exists
 | Capability | State |
 | --- | --- |
 | Phase 0 evidence: brief delta, provenance, 12-case map | **Built** |
-| Project toolchain, standards, CI (static + unit) | **Built** |
+| Project toolchain, standards, CI (static, unit, docker) | **Built** |
 | Typed intake: case and policy schemas, contained path resolution, input hashing | **Built** |
 | `proofbench case validate` | **Built** |
-| AidLedger fixture, roles, RLS policies | Not built |
-| PostgreSQL sandbox and world runner | Not built |
-| Tenant isolation world, decision policy, blast radius | Not built |
-| Trace writer and validator | Not built |
-| Certificate and offline replay | Not built |
+| AidLedger fixture, roles, RLS policies | **Built** |
+| Disposable PostgreSQL sandbox, restricted migration role, database-per-world | **Built** |
+| Tenant isolation world, decision policy, confirmed blast radius | **Built** |
+| Trace writer, hash chain, validator, redaction | **Built** |
+| Certificate, manifest, and offline replay | Not built |
+| `proofbench review` command | Not built |
+| Money, rolling, interruption, rollback, lock, and audit worlds | Not built |
+| Cases C02 through C12 | Not built |
 | Three product agents and live provider | Not built |
 | Fair direct-review baseline and paired evaluation | Not built |
+
+C01 currently reaches `BLOCKED` end to end with zero model calls: the visible
+schema test passes, the tenant isolation world observes two Southgate payment rows
+from a Northwind session, and the confirmed blast radius names the role, tenant,
+and row keys. It is exercised by `tests/e2e/test_c01_blocked.py` rather than by a
+CLI command, because `review` needs a certificate to be worth registering.
 
 `make baseline`, `make evaluate`, and `make replay` exit non-zero with `EVIDENCE_NOT_BUILT`
 until they have real evidence to verify. That is deliberate: a judge-facing command that

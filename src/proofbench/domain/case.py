@@ -8,18 +8,23 @@ filesystem boundary that knows what a root is.
 Ownership is split deliberately so the two files cannot disagree:
 
 * ``CaseSpec``   owns inputs, visible tests, world selection, seed, and budgets.
-* ``PolicySpec`` owns roles, access expectations, invariants, lock and money
-  rules, and the capabilities a candidate migration may use.
+* ``PolicySpec`` owns roles, executable access probes, invariants, lock and
+  money rules, and the capabilities a candidate migration may use.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
 from typing import Annotated, Literal
+from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, Field, model_validator
 
-SCHEMA_VERSION = "1.0"
+from proofbench.domain.base import SqlIdentifier, StrictModel
+
+CASE_SCHEMA_VERSION = "1.0"
+# Bumped to 1.1 when ambiguous read/write booleans became executable probes.
+POLICY_SCHEMA_VERSION = "1.1"
 
 
 def _check_relative_posix(raw: str) -> str:
@@ -48,12 +53,6 @@ class WorldName(StrEnum):
     ROLLBACK = "rollback"
     LOCKS = "locks"
     AUDIT = "audit"
-
-
-class StrictModel(BaseModel):
-    """Base for every persisted model: unknown fields are rejected, not ignored."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 # ---------------------------------------------------------------------------
@@ -117,24 +116,105 @@ class CaseSpec(StrictModel):
 class RoleSpec(StrictModel):
     """A declared database role the worlds must exercise."""
 
-    name: str = Field(min_length=1, max_length=63)
+    name: SqlIdentifier
     description: str = Field(min_length=1)
     tenant_scoped: bool
 
 
-class AccessExpectation(StrictModel):
-    """One cell of the role-by-tenant access matrix.
+class Operation(StrEnum):
+    """The SQL operation a probe performs."""
 
-    Both directions are declared. A world that only checks that permitted access
-    still works would pass a migration that grants the world to everyone.
+    SELECT = "SELECT"
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+
+
+class ProbeScope(StrEnum):
+    """Whether the probe targets the session's own tenant or another one."""
+
+    OWN = "own"
+    OTHER = "other"
+
+
+class ProbeOutcome(StrEnum):
+    """What the policy says should happen.
+
+    Row-level security denies by *filtering*, not by raising, so a denial that
+    yields zero rows and a denial that raises are different observable facts and
+    must be declared separately. Collapsing them would let a migration that
+    dropped a policy entirely look the same as one that kept it.
     """
 
-    role: str = Field(min_length=1)
-    table: str = Field(min_length=1)
-    read_own: bool
-    read_other: bool
-    write_own: bool
-    write_other: bool
+    ALLOW = "allow"
+    DENY_EMPTY = "deny_empty"
+    DENY_ERROR = "deny_error"
+
+
+ProbeValue = str | int | bool | UUID
+
+
+class RlsProbeSpec(StrictModel):
+    """One executable tenant-isolation probe.
+
+    Replaces the read/write booleans of policy 1.0, which could not express what
+    a denial should look like, nor which rows count as evidence.
+    """
+
+    probe_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{2,63}$")
+    invariant_id: str = Field(pattern=r"^INV-[A-Z]+-\d{3}$")
+    description: str = Field(min_length=1)
+
+    role: SqlIdentifier
+    table: SqlIdentifier
+    operation: Operation
+    scope: ProbeScope
+
+    session_tenant: UUID
+    target_tenant: UUID
+
+    # Parameterized fragment with named placeholders, e.g. "org_id = %(target)s".
+    # Never interpolated; psycopg binds the values below.
+    predicate: str = Field(min_length=1)
+    values: dict[str, ProbeValue] = Field(default_factory=dict)
+
+    # Columns captured from matched rows so a finding can name real evidence.
+    evidence_columns: list[SqlIdentifier] = Field(min_length=1)
+
+    expected_outcome: ProbeOutcome
+    expected_row_count: int | None = Field(default=None, ge=0)
+    expected_row_keys: list[str] = Field(default_factory=list)
+    expected_sqlstate: str | None = Field(default=None, pattern=r"^[0-9A-Z]{5}$")
+
+    @model_validator(mode="after")
+    def _outcome_carries_its_evidence(self) -> RlsProbeSpec:
+        if self.expected_outcome is ProbeOutcome.DENY_ERROR and self.expected_sqlstate is None:
+            raise ValueError("deny_error requires expected_sqlstate")
+        if self.expected_outcome is not ProbeOutcome.DENY_ERROR and self.expected_sqlstate:
+            raise ValueError("expected_sqlstate is only meaningful for deny_error")
+        if self.expected_outcome is ProbeOutcome.DENY_EMPTY and self.expected_row_count not in (
+            None,
+            0,
+        ):
+            raise ValueError("deny_empty implies zero rows")
+        if self.expected_outcome is ProbeOutcome.ALLOW and (
+            self.expected_row_count is None and not self.expected_row_keys
+        ):
+            raise ValueError("allow requires expected_row_count or expected_row_keys")
+        if self.scope is ProbeScope.OWN and self.session_tenant != self.target_tenant:
+            raise ValueError("scope 'own' requires session_tenant == target_tenant")
+        if self.scope is ProbeScope.OTHER and self.session_tenant == self.target_tenant:
+            raise ValueError("scope 'other' requires a different target_tenant")
+        return self
+
+    @model_validator(mode="after")
+    def _values_are_exact(self) -> RlsProbeSpec:
+        # Floats have no place in evidence, and a float bound into a predicate
+        # would make a probe non-reproducible across platforms.
+        for key, value in self.values.items():
+            if isinstance(value, float):
+                raise ValueError(f"value {key!r} must not be a float")
+        return self
 
 
 class InvariantPolicy(StrictModel):
@@ -182,11 +262,11 @@ class MigrationCapabilities(StrictModel):
 class PolicySpec(StrictModel):
     """The team policy a candidate is judged against."""
 
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     policy_id: str = Field(min_length=1)
     version: int = Field(ge=1)
     roles: list[RoleSpec] = Field(min_length=1)
-    tenant_access: list[AccessExpectation] = Field(min_length=1)
+    rls_probes: list[RlsProbeSpec] = Field(min_length=1)
     invariants: list[InvariantPolicy] = Field(min_length=1)
     lock: LockPolicy
     money: MoneyPolicy = Field(default_factory=MoneyPolicy)

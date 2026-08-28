@@ -1,0 +1,165 @@
+"""Prepare and run the worlds a case requires.
+
+The parent side of the boundary. It holds the administrative connection, so it
+is the only thing that can measure the fixture before a world runs, and it is
+the only thing that spawns the child. A world never sees any of this.
+
+This is not the workflow state machine — it runs worlds and nothing else.
+"""
+
+from __future__ import annotations
+
+import time
+from pathlib import Path
+
+import psycopg
+from psycopg import sql
+
+from proofbench.domain.case import ProbeOutcome, RlsProbeSpec
+from proofbench.domain.evidence import CheckResult, CheckStatus, WorldResult
+from proofbench.domain.trace import EventType
+from proofbench.intake.loader import LoadedCase
+from proofbench.sandbox.postgres import MIGRATION_ROLE, PostgresSandbox
+from proofbench.sandbox.worker import run_world
+from proofbench.tracing.writer import TraceWriter
+from proofbench.worlds.base import ProbeTarget, WorldRequest
+
+
+def prepare_world_database(sandbox: PostgresSandbox, loaded: LoadedCase, world: str) -> str:
+    """Clone a fresh database and apply the candidate migration to it."""
+    database = sandbox.clone(world)
+    sandbox.apply_sql_file(
+        database,
+        loaded.benchmark_root / loaded.case.candidate.migration_path,
+        user=MIGRATION_ROLE,
+    )
+    return database
+
+
+def run_visible_tests(
+    sandbox: PostgresSandbox, database: str, loaded: LoadedCase
+) -> list[CheckResult]:
+    """Run the case's visible tests.
+
+    These are the checks a reviewer would naturally run. For an unsafe case they
+    are expected to pass: if the obvious check caught the defect, the case would
+    not be testing anything the deployment timeline adds.
+
+    Assertions raise inside the SQL, so any exception is a failure and the
+    SQLSTATE is kept as evidence.
+    """
+    results: list[CheckResult] = []
+    for index, relative in enumerate(loaded.case.visible_tests):
+        path = loaded.benchmark_root / relative
+        clock = time.monotonic()
+        sqlstate: str | None = None
+        detail: str | None = None
+        status = CheckStatus.PASSED
+        try:
+            sandbox.apply_sql_file(database, path, user=MIGRATION_ROLE)
+        except psycopg.Error as exc:
+            status = CheckStatus.FAILED
+            sqlstate = exc.sqlstate
+            detail = str(exc)[:300]
+        results.append(
+            CheckResult(
+                check_id=f"visible:{index}:{Path(relative).name}",
+                command=f"visible test {relative}",
+                status=status,
+                duration_ms=int((time.monotonic() - clock) * 1000),
+                sqlstate=sqlstate,
+                detail=detail,
+            )
+        )
+    return results
+
+
+def build_targets(
+    sandbox: PostgresSandbox, database: str, probes: list[RlsProbeSpec]
+) -> list[ProbeTarget]:
+    """Measure how many rows each probe targets, under an admin connection.
+
+    A ``deny_empty`` probe against an empty target set would report a clean pass
+    while proving nothing, so the count is measured here and the world treats a
+    zero as an evidence error.
+    """
+    targets: list[ProbeTarget] = []
+    with sandbox.connect(database) as conn:
+        for probe in probes:
+            if probe.expected_outcome is ProbeOutcome.DENY_ERROR:
+                # Privilege probes do not depend on data being present.
+                targets.append(ProbeTarget(probe=probe, target_row_count=0))
+                continue
+            statement = sql.SQL("SELECT count(*) FROM {table} WHERE {pred}").format(
+                table=sql.Identifier(probe.table),
+                pred=sql.SQL(probe.predicate),  # noqa: S608 - validated policy fragment
+            )
+            row = conn.execute(statement, probe.values).fetchone()
+            count = int(row[0]) if row and isinstance(row[0], int) else 0
+            targets.append(ProbeTarget(probe=probe, target_row_count=count))
+    return targets
+
+
+def run_required_worlds(
+    sandbox: PostgresSandbox,
+    loaded: LoadedCase,
+    *,
+    run_id: str,
+    trace: TraceWriter | None = None,
+    database_by_world: dict[str, str] | None = None,
+) -> list[WorldResult]:
+    """Run every world the case declares required, each on its own database."""
+    results: list[WorldResult] = []
+
+    for world in loaded.case.worlds.required:
+        name = world.value
+        database = (database_by_world or {}).get(name) or prepare_world_database(
+            sandbox, loaded, name
+        )
+
+        targets = build_targets(sandbox, database, list(loaded.policy.rls_probes))
+        request = WorldRequest(
+            world=name,
+            run_id=run_id,
+            host="127.0.0.1",
+            port=sandbox.port or 0,
+            database=database,
+            # Only the roles this world probes. No administrative credential
+            # crosses into the child.
+            credentials={
+                role: sandbox.credentials.role_passwords[role]
+                for role in sorted({target.probe.role for target in targets})
+            },
+            targets=targets,
+            deadline_seconds=loaded.case.budgets.world_timeout_seconds,
+        )
+
+        if trace is not None:
+            trace.emit(
+                EventType.CHECK_STARTED,
+                actor="world-runner",
+                stage=f"world:{name}",
+                summary=f"running world {name} on {database}",
+                payload={"world": name, "probes": len(targets)},
+            )
+
+        result = run_world(request)
+        results.append(result)
+
+        if trace is not None:
+            trace.emit(
+                EventType.CHECK_COMPLETED,
+                actor="world-runner",
+                stage=f"world:{name}",
+                summary=f"world {name} ended as {result.status.value}",
+                payload={
+                    "world": name,
+                    "status": result.status.value,
+                    "findings": [finding.invariant_id for finding in result.findings],
+                    "semantic_digest": result.semantic_digest,
+                },
+            )
+
+        sandbox.assert_cluster_unchanged(stage=f"world:{name}")
+
+    return results

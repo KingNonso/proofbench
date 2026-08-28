@@ -18,6 +18,26 @@ ALTER TABLE disbursements  FORCE  ROW LEVEL SECURITY;
 ALTER TABLE audit_events   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_events   FORCE  ROW LEVEL SECURITY;
 
+-- The migration role owns these tables and FORCE applies row-level security to
+-- an owner too, so without an explicit policy it would see zero rows. A
+-- migration that copies a table would then silently copy nothing -- which is a
+-- far nastier failure than a permission error, because it looks like success.
+--
+-- Granting it explicitly, rather than dropping FORCE and relying on the implicit
+-- owner exemption, keeps the maintenance access visible in the policy file where
+-- a reviewer will look for it. The migration role is never probed by the tenant
+-- isolation world; the application roles below are.
+CREATE POLICY organizations_migration_maintenance ON organizations
+    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
+CREATE POLICY beneficiaries_migration_maintenance ON beneficiaries
+    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
+CREATE POLICY payments_migration_maintenance ON payments
+    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
+CREATE POLICY disbursements_migration_maintenance ON disbursements
+    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
+CREATE POLICY audit_events_migration_maintenance ON audit_events
+    FOR ALL TO aidledger_migration USING (true) WITH CHECK (true);
+
 CREATE POLICY organizations_own_tenant ON organizations
     FOR SELECT TO aidledger_app, aidledger_org_admin, aidledger_service
     USING (org_id = current_setting('aidledger.org_id', true)::uuid);

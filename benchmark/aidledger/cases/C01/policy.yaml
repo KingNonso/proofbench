@@ -1,6 +1,16 @@
-schema_version: "1.0"
+# Policy schema 1.1.
+#
+# 1.0 declared access as read/write booleans. Those could not say what a denial
+# should look like: row-level security denies by filtering to zero rows, while a
+# missing grant raises. A migration that dropped RLS entirely and one that kept
+# it looked identical through booleans. Probes are executable and say exactly
+# what they expect.
+#
+# Tenants: 1111... is Northwind Relief, 2222... is Southgate Aid.
+
+schema_version: "1.1"
 policy_id: aidledger-default
-version: 1
+version: 2
 
 roles:
   - name: aidledger_app
@@ -16,34 +26,6 @@ roles:
     description: Background settlement and backfill process
     tenant_scoped: true
 
-# Both directions are declared. A world that only checked that permitted access
-# still works would pass a migration that granted the world to everyone.
-tenant_access:
-  - role: aidledger_app
-    table: payments
-    read_own: true
-    read_other: false
-    write_own: true
-    write_other: false
-  - role: aidledger_org_admin
-    table: payments
-    read_own: true
-    read_other: false
-    write_own: false
-    write_other: false
-  - role: aidledger_service
-    table: payments
-    read_own: true
-    read_other: false
-    write_own: true
-    write_other: false
-  - role: aidledger_auditor
-    table: audit_events
-    read_own: true
-    read_other: false
-    write_own: false
-    write_other: false
-
 invariants:
   - id: INV-RLS-001
     description: No session may read rows belonging to an organisation other than its own
@@ -54,6 +36,205 @@ invariants:
   - id: INV-RLS-003
     description: No declared role gains access the policy does not grant it
     blocking: true
+
+# Both directions are probed. A world that only checked that permitted access
+# still works would pass a migration that granted the world to everyone.
+rls_probes:
+  # --- aidledger_app -------------------------------------------------------
+  - probe_id: app-select-own
+    invariant_id: INV-RLS-002
+    description: The application must still read its own organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 3
+
+  - probe_id: app-select-other
+    invariant_id: INV-RLS-001
+    description: The application must never read another organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: app-update-other
+    invariant_id: INV-RLS-001
+    description: The application must never update another organisation's payments
+    role: aidledger_app
+    table: payments
+    operation: UPDATE
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: app-delete-own
+    invariant_id: INV-RLS-003
+    description: The application was never granted DELETE on payments
+    role: aidledger_app
+    table: payments
+    operation: DELETE
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
+
+  # --- aidledger_org_admin -------------------------------------------------
+  - probe_id: orgadmin-select-own
+    invariant_id: INV-RLS-002
+    description: The organisation administrator must still read its own payments
+    role: aidledger_org_admin
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 2
+
+  - probe_id: orgadmin-select-other
+    invariant_id: INV-RLS-001
+    description: The organisation administrator must never read another organisation's payments
+    role: aidledger_org_admin
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: orgadmin-insert-own
+    invariant_id: INV-RLS-003
+    description: The organisation administrator was never granted INSERT on payments
+    role: aidledger_org_admin
+    table: payments
+    operation: INSERT
+    scope: own
+    session_tenant: 22222222-2222-4222-8222-222222222222
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
+
+  # --- aidledger_service ---------------------------------------------------
+  - probe_id: service-select-own
+    invariant_id: INV-RLS-002
+    description: The settlement process must still read its own organisation's payments
+    role: aidledger_service
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 3
+
+  - probe_id: service-select-other
+    invariant_id: INV-RLS-001
+    description: The settlement process must never read another organisation's payments
+    role: aidledger_service
+    table: payments
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  # --- aidledger_auditor ---------------------------------------------------
+  - probe_id: auditor-select-own-audit
+    invariant_id: INV-RLS-002
+    description: The auditor must retain read access to its own organisation's history
+    role: aidledger_auditor
+    table: audit_events
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [event_id, org_id]
+    expected_outcome: allow
+    expected_row_count: 2
+
+  - probe_id: auditor-select-other-audit
+    invariant_id: INV-RLS-001
+    description: The auditor must never read another organisation's history
+    role: aidledger_auditor
+    table: audit_events
+    operation: SELECT
+    scope: other
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 22222222-2222-4222-8222-222222222222
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 22222222-2222-4222-8222-222222222222
+    evidence_columns: [event_id, org_id]
+    expected_outcome: deny_empty
+    expected_row_count: 0
+
+  - probe_id: auditor-select-payments
+    invariant_id: INV-RLS-003
+    description: The auditor was never granted access to payments
+    role: aidledger_auditor
+    table: payments
+    operation: SELECT
+    scope: own
+    session_tenant: 11111111-1111-4111-8111-111111111111
+    target_tenant: 11111111-1111-4111-8111-111111111111
+    predicate: org_id = %(target_tenant)s
+    values:
+      target_tenant: 11111111-1111-4111-8111-111111111111
+    evidence_columns: [payment_id, org_id]
+    expected_outcome: deny_error
+    expected_sqlstate: "42501"
 
 lock:
   # Configures a session lock_timeout, so PostgreSQL produces the verdict as

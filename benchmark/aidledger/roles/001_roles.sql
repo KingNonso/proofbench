@@ -36,6 +36,14 @@ ALTER TABLE audit_events   OWNER TO aidledger_migration;
 GRANT USAGE ON SCHEMA public TO
     aidledger_app, aidledger_org_admin, aidledger_auditor, aidledger_service;
 
+-- Since PostgreSQL 15, PUBLIC no longer holds CREATE on schema public. Without
+-- this grant the migration role cannot create so much as a temporary table, and
+-- a candidate would fail on a permission error instead of on the defect under
+-- test -- a containment artifact wearing the costume of a real finding.
+-- Ordinary migration work, and nothing above it: the security tests prove the
+-- role still cannot create roles, databases, tablespaces, or read server files.
+GRANT CREATE ON SCHEMA public TO aidledger_migration;
+
 -- Tenant worker: reads and writes its own organisation's operational data.
 GRANT SELECT                       ON organizations, currencies TO aidledger_app;
 GRANT SELECT, INSERT, UPDATE       ON beneficiaries, payments   TO aidledger_app;

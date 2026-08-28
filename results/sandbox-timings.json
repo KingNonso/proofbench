@@ -1,0 +1,37 @@
+{
+  "candidate_apply": {
+    "max_ms": 33,
+    "median_ms": 17,
+    "samples": 6
+  },
+  "cleanup": {
+    "max_ms": 308,
+    "median_ms": 229,
+    "samples": 6
+  },
+  "environment": {
+    "image": "postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+    "machine": "x86_64",
+    "note": "image already present locally; no pull is measured here",
+    "platform": "macOS-14.1-x86_64-i386-64bit",
+    "python": "3.12.12"
+  },
+  "first_cached_image_start_ms": 1443,
+  "recorded_at": "2026-08-28T20:48:56.580225+00:00",
+  "rls_world": {
+    "max_ms": 594,
+    "median_ms": 574,
+    "samples": 6
+  },
+  "schema_version": "1.0",
+  "template_clone": {
+    "max_ms": 85,
+    "median_ms": 38,
+    "samples": 6
+  },
+  "warm_container_start": {
+    "max_ms": 1937,
+    "median_ms": 1234,
+    "samples": 5
+  }
+}

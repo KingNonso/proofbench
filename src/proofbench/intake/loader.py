@@ -160,24 +160,39 @@ def load_case(case_path: Path) -> LoadedCase:
 def _check_policy_agrees_with_itself(policy: PolicySpec, *, source: str) -> None:
     """Cross-field checks a per-field schema cannot express.
 
-    An access expectation naming a role that does not exist would otherwise
-    silently never be tested, which is the quietest possible way for a tenant
-    isolation check to pass.
+    A probe naming a role or invariant that does not exist would otherwise never
+    be executed or never be attributable, which is the quietest possible way for
+    a tenant isolation check to pass.
     """
-    declared = {role.name for role in policy.roles}
-    unknown = sorted({row.role for row in policy.tenant_access} - declared)
-    if unknown:
+    declared_roles = {role.name for role in policy.roles}
+    unknown_roles = sorted({probe.role for probe in policy.rls_probes} - declared_roles)
+    if unknown_roles:
         raise CaseValidationError(
-            "tenant_access references roles that are not declared",
+            "rls_probes reference roles that are not declared",
             location=source,
-            detail={"unknown_roles": ", ".join(unknown)},
+            detail={"unknown_roles": ", ".join(unknown_roles)},
         )
 
-    counts = Counter(item.id for item in policy.invariants)
-    duplicated = sorted(name for name, count in counts.items() if count > 1)
-    if duplicated:
+    declared_invariants = {item.id for item in policy.invariants}
+    unknown_invariants = sorted(
+        {probe.invariant_id for probe in policy.rls_probes} - declared_invariants
+    )
+    if unknown_invariants:
         raise CaseValidationError(
-            "invariant ids must be unique",
+            "rls_probes reference invariants that are not declared",
             location=source,
-            detail={"duplicated": ", ".join(duplicated)},
+            detail={"unknown_invariants": ", ".join(unknown_invariants)},
         )
+
+    for label, names in (
+        ("invariant ids", [item.id for item in policy.invariants]),
+        ("probe ids", [probe.probe_id for probe in policy.rls_probes]),
+    ):
+        counts = Counter(names)
+        duplicated = sorted(name for name, count in counts.items() if count > 1)
+        if duplicated:
+            raise CaseValidationError(
+                f"{label} must be unique",
+                location=source,
+                detail={"duplicated": ", ".join(duplicated)},
+            )

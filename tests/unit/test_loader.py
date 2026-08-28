@@ -61,12 +61,12 @@ def test_case_pointing_into_the_oracle_is_rejected(c01_case, tmp_path):
 
 
 def test_policy_referencing_an_undeclared_role_is_rejected(c01_case, tmp_path):
-    # An expectation naming a role that does not exist would never be tested,
+    # A probe naming a role that does not exist would never be executed,
     # which is the quietest way for a tenant isolation check to pass.
     copy = tmp_path / "aidledger"
     shutil.copytree(c01_case.parents[2], copy, symlinks=True)
     policy = copy / "cases" / "C01" / "policy.yaml"
-    policy.write_text(policy.read_text().replace("  - role: aidledger_app", "  - role: ghost_role"))
+    policy.write_text(policy.read_text().replace("role: aidledger_app", "role: ghost_role", 1))
     with pytest.raises(CaseValidationError, match="not declared"):
         load_case(copy / "cases" / "C01" / "case.yaml")
 

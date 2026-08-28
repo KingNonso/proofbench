@@ -1,9 +1,8 @@
-# CI grows with the code.
+# CI grows with the code. A job that verifies nothing is worse than a missing
+# one, because it looks like coverage.
 #
-# Only jobs that verify something real are here. The integration, security,
-# replay, and submission jobs from implementation-plan.md section 16 are added
-# when they have artifacts to verify; an always-green empty job is worse than a
-# missing one because it looks like coverage.
+# The replay and submission jobs from implementation-plan.md section 16 are added
+# when they have artifacts to verify.
 
 name: ci
 
@@ -23,8 +22,8 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync
-      - run: uv run ruff format --check src tests
-      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests scripts
+      - run: uv run ruff check src tests scripts
       - run: uv run mypy src
 
   unit:
@@ -37,6 +36,21 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync
-      # No provider variables are set anywhere in this workflow. The offline
-      # judge path must never depend on one.
-      - run: uv run pytest
+      # Docker-backed tests belong to the job below; running them twice would
+      # only slow the feedback loop.
+      - run: uv run pytest -m "not integration and not security and not e2e"
+
+  docker:
+    name: sandbox, containment, and end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: docker pull "$(grep -oE 'postgres:16@sha256:[0-9a-f]{64}' compose.yaml | head -1)"
+      # No provider variable is set anywhere in this workflow. The offline path
+      # must never depend on one.
+      - run: uv run pytest -m "integration or security or e2e"
