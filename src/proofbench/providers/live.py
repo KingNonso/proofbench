@@ -11,13 +11,10 @@ offline judge path imports this module, so a judge with no key and no
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+import importlib
 
 from proofbench.errors import EvidenceIncompleteError
 from proofbench.providers.base import ModelRequest, ModelResponse, Usage
-
-if TYPE_CHECKING:  # pragma: no cover - types only, never imported at runtime
-    from anthropic.types import MessageParam
 
 DEFAULT_MODEL = "claude-opus-5"
 
@@ -37,8 +34,8 @@ class LiveProvider:
 
     def __init__(self, model: str = DEFAULT_MODEL, *, effort: str = "high") -> None:
         try:
-            import anthropic  # noqa: PLC0415 - optional dependency, imported on use
-        except ImportError as exc:  # pragma: no cover - exercised only without the extra
+            anthropic = importlib.import_module("anthropic")
+        except ImportError as exc:
             raise EvidenceIncompleteError(
                 "the live provider needs the optional anthropic package",
                 detail={"install": "uv sync --extra live"},
@@ -54,14 +51,9 @@ class LiveProvider:
     async def complete(self, request: ModelRequest) -> ModelResponse:
         """Send one request. Raises EvidenceIncompleteError on any API failure."""
         system = "\n\n".join(m.content for m in request.messages if m.role == "system")
-        turns = cast(
-            "list[MessageParam]",
-            [
-                {"role": m.role, "content": m.content}
-                for m in request.messages
-                if m.role != "system"
-            ],
-        )
+        turns = [
+            {"role": m.role, "content": m.content} for m in request.messages if m.role != "system"
+        ]
 
         try:
             # Streaming: max_tokens is large enough that a non-streaming request
@@ -72,7 +64,7 @@ class LiveProvider:
                 system=system,
                 messages=turns,
                 thinking={"type": "adaptive"},
-                output_config=cast("Any", {"effort": self.effort}),
+                output_config={"effort": self.effort},
             ) as stream:
                 message = stream.get_final_message()
         except self._anthropic.APIStatusError as exc:
