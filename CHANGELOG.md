@@ -280,7 +280,7 @@ recorded events by id and content. `money` gained duplicate-settlement detection
 because the unique constraint on (org_id, idempotency_key) is satisfied by a retry
 that mints a fresh key while paying the beneficiary twice.
 
-### 2026-08-28 — Release gate R4 closed: the paired experiment
+### 2026-08-28 — R4 comparison recorded; later audit reopened the gate
 
 239 tests pass. The measured result, from `results/summary.json`: the
 visible-tests baseline escapes **9/9** unsafe migrations, ProofBench escapes
@@ -318,7 +318,7 @@ contention design (failed the correct migration), folding a passing correction
 into the decision (made the primary metric meaningless), and an unreachable
 `Ruling` validator.
 
-### 2026-08-28 — Release gate R5 closed: reproduction from a clean checkout
+### 2026-08-28 — R5 was recorded as closed; later audit found the baseline validator gap
 
 264 tests pass. The five judge commands were run from a fresh `git clone` with
 provider variables unset, and `REPRODUCTION.md` carries the measured timings from
@@ -356,7 +356,7 @@ drifting from the number in the evidence.
 CI now runs all six jobs from the technical plan: static, unit, docker,
 replay, evaluation, and submission.
 
-### 2026-08-28 — Release gate R6 closed: the submission holds together
+### 2026-08-28 — R6 materials assembled; final gate remains open
 
 273 tests pass. All twelve certificates replay. All six CI jobs are active.
 
@@ -433,4 +433,3 @@ be worse than the gap.
 
 Also: golden regeneration is a committed script (`scripts/regenerate_golden.py`)
 instead of an inline snippet that had been retyped four times.
-

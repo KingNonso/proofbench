@@ -89,7 +89,20 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync
-      - run: make baseline
+      # make baseline must fail honestly until committed PRD-FR-002
+      # direct-review records exist. Requiring success here would force either
+      # a fabricated baseline or a permanently red pipeline; instead CI asserts
+      # the failure is the *documented* one, naming the missing arm.
+      - name: baseline names its missing evidence honestly
+        run: |
+          set +e
+          out=$(make baseline 2>&1); code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ]; then
+            echo "make baseline passed but the direct-review arm has never run"; exit 1
+          fi
+          echo "$out" | grep -q "missing required baseline_direct_review arm"
       # Fails if summary.json does not follow from raw-runs.jsonl, so a
       # submitted number cannot drift from the runs it came from.
       - run: make evaluate

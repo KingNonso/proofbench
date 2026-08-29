@@ -95,6 +95,18 @@ def test_no_credential_reaches_a_committed_artifact(repo_root):
     assert offenders == [], f"credential-shaped text in committed artifacts: {offenders}"
 
 
+def test_no_host_path_reaches_a_committed_artifact(repo_root):
+    patterns = re.compile(r"/Users/|/home/|/private/var/|[A-Za-z]:\\\\Users\\\\|/tmp/")
+    offenders = []
+    for directory in ("results", "tests/golden", "submission"):
+        for path in (repo_root / directory).rglob("*"):
+            if path.is_file() and patterns.search(
+                path.read_text(encoding="utf-8", errors="ignore")
+            ):
+                offenders.append(str(path.relative_to(repo_root)))
+    assert offenders == [], f"host path in committed artifacts: {offenders}"
+
+
 def test_no_oracle_content_reaches_a_committed_run_artifact(repo_root):
     # A run bundle that carried its own answer key would not be evidence of
     # anything. The oracle lives only under evaluator_only/.
@@ -144,3 +156,10 @@ def test_the_summary_carries_the_prd_072_guardrails(repo_root):
     assert "repeat_stability" in summary
     for arm, entry in summary["repeat_stability"].items():
         assert entry["all_identical"], f"{arm} repeats disagreed: {entry['disagreements']}"
+
+
+def test_readme_does_not_claim_open_release_gates_are_closed(repo_root):
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+
+    assert "R4 through R6 remain open" in readme
+    assert "All release gates R1 through R6 are closed" not in readme

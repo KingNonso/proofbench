@@ -444,10 +444,10 @@ Never cut:
 
 ## 18. Final completion checklist
 
-- [ ] R0: scope, provenance, and case integrity are frozen.
-- [ ] R1: C01 deterministic vertical, certificate, and replay pass.
-- [ ] R2: three agent roles and C04 human authority path pass.
-- [ ] R3: all 12 golden cases reach expected states.
+- [x] R0: scope, provenance, and case integrity are frozen.
+- [x] R1: C01 deterministic vertical, certificate, and replay pass.
+- [x] R2: three agent roles and C04 human authority path pass.
+- [x] R3: all 12 golden cases reach expected states.
 - [ ] R4: paired comparison and changelog are complete.
 - [ ] R5: clean five-command reproduction passes without a model key.
 - [ ] R6: code, guide, video, trajectories, and claims agree.

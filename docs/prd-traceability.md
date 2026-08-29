@@ -48,7 +48,7 @@ requires a provider key that has not been supplied.
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| PRD-NFR-001 reproducibility | Implemented | Five commands from a clean clone, 194–203 s measured, provider variables unset; `-live` targets separate |
+| PRD-NFR-001 reproducibility | Partial | Four offline evidence paths are implemented, but `make baseline` correctly returns `EVIDENCE_NOT_BUILT` until committed PRD-FR-002 direct-review records exist. The five-command clean path is therefore not yet closed |
 | PRD-NFR-002 safety | Implemented | Disposable containers, non-root-capability migration role, loopback-only port, resource limits; `tests/security/` |
 | PRD-NFR-003 determinism | Partial | Pinned image/seeds/UTC; semantic digests per model; repeats identical across the four repeated cases and both arms. Three-replay stability asserted per-world for RLS, per-bundle once for all twelve |
 | PRD-NFR-004 performance | Implemented | C01 warm demo ≈ 15 s (budget 90 s); wall times in `results/sandbox-timings.json` and `summary.json` |
@@ -63,9 +63,9 @@ requires a provider key that has not been supplied.
 | R1 deterministic vertical | Closed | C01 blocked without a model call; golden bundle replays |
 | R2 agent workflow | Closed | Three schema-valid agents; C01 correction path; C04 packet + executable ruling |
 | R3 benchmark | Closed | 12/12 expected states offline; C11/C12 accepted; failures visible |
-| R4 measured comparison | Closed, with a named caveat | 9/9 vs 0/9 on identical frozen inputs under the PRD fallback protocol; the *agent* baseline arm is key-gated and disclosed |
-| R5 reproduction | Closed | Clean clone, five commands, no key, twice measured |
-| R6 submission | Closed except the video | Claim lock executable; all documents present and link-checked; the recording itself is human work |
+| R4 measured comparison | Open | 9/9 vs 0/9 is measured against visible tests, not the PRD-FR-002 direct-review agent; that required arm is key-gated and unrun |
+| R5 reproduction | Open | `make baseline` returns `EVIDENCE_NOT_BUILT` until the direct-review records are committed; the remaining offline commands validate |
+| R6 submission | Open | Claim lock is executable and documents are link-checked, but the final video and the R4/R5 prerequisites remain incomplete |
 
 ## Known honest gaps
 

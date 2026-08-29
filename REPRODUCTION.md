@@ -2,8 +2,10 @@
 
 Written for someone starting from a clean environment with no Anthropic key.
 
-Every command below was run from a fresh `git clone` before this guide was
-written, and the timings are what that run measured — not estimates.
+The deterministic commands below have measured evidence. The complete
+five-command PRD path is not yet closed: `make baseline` returns
+`EVIDENCE_NOT_BUILT` until direct-review agent records are generated with a
+provider key and committed for offline validation.
 
 ## What you need
 
@@ -14,10 +16,10 @@ written, and the timings are what that run measured — not estimates.
 | `make` | GNU Make 3.81 | The five commands below |
 | Disk | ~500 MB | Mostly the PostgreSQL image |
 
-**No provider key is required.** None of the five commands calls a model, and the
-Anthropic SDK is an optional extra that `make bootstrap` does not install — so a
-provider call is not merely unused on this path, it is unavailable. You can
-verify that yourself:
+**No provider key is required to validate committed evidence.** The Anthropic SDK
+is an optional extra that `make bootstrap` does not install. Producing the
+currently missing PRD-FR-002 direct-review records does require the live extra
+and a provider key.
 
 ```bash
 uv run python -c "import importlib.util; print(importlib.util.find_spec('anthropic'))"
@@ -35,7 +37,7 @@ git clone <this repository> proofbench && cd proofbench
 
 make bootstrap   # install pinned Python 3.12 + deps, pull the pinned database image
 make test        # unit, schema, security, integration and end-to-end tests
-make baseline    # validate the committed baseline decisions
+make baseline    # currently reports EVIDENCE_NOT_BUILT: direct-review records absent
 make evaluate    # recompute the metrics from the committed run records
 make replay      # re-run the deterministic evidence behind all 12 golden certificates
 ```
@@ -49,16 +51,24 @@ already pulled:
 | --- | ---: | --- |
 | `make bootstrap` | 11 s | Toolchain and image. First ever run adds the image pull (~150 MB). |
 | `make test` | 141 s | 239 tests, including 12 end-to-end case runs against real PostgreSQL |
-| `make baseline` | <1 s | Reads committed records; runs nothing |
+| `make baseline` | <1 s | Fails honestly until committed PRD-FR-002 direct-review records exist |
 | `make evaluate` | 1 s | Recomputes metrics from `results/raw-runs.jsonl`; runs nothing |
 | `make replay` | 41 s | Starts a fresh database per golden bundle and re-runs its worlds |
-| **Total** | **194 s** | |
+| **Measured deterministic total** | **194 s** | Historical timing; not a claim that the open baseline gate passes |
 
 ### Cost
 
-**Zero.** No command on this path makes a network call to a model provider.
+The offline validation commands cost zero. Producing the missing direct-review
+evidence has not been costed because it has not been run.
 
 ## What you should see
+
+`make baseline` currently ends with:
+
+```
+EVIDENCE_NOT_BUILT: required baseline records are incomplete
+  missing required baseline_direct_review arm
+```
 
 `make evaluate` prints the headline result:
 

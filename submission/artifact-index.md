@@ -17,7 +17,7 @@ artifact is a claim this project does not make.
 | Every PRD requirement has an audited status | `docs/prd-traceability.md` | `uv run pytest tests/e2e/test_submission.py -k traceability` |
 | Every unsafe candidate passes its own visible test | `tests/golden/*/certificate.json` → `visible_tests` | `uv run pytest tests/e2e/test_all_cases.py -k visible` |
 | All 12 certificates reproduce offline | `tests/golden/*/` | `make replay` |
-| The five-command path works from a clean checkout with no key | `REPRODUCTION.md`, measured timings | `git clone` then the five commands |
+| Four offline evidence paths validate without a key; the five-command gate remains open | `REPRODUCTION.md`, `docs/prd-traceability.md` | `make test && make evaluate && make replay`; `make baseline` names the missing evidence |
 
 ## Product behaviour
 

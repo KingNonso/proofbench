@@ -79,9 +79,12 @@ Honest build state. Nothing is described as working before its artifact exists
 | Live Anthropic provider adapter | **Built**, unrun — needs a key |
 | Direct-review agent baseline (PRD-FR-002) | **Built**, unrun — needs a key |
 
-**All release gates R1 through R6 are closed.** All twelve cases reach their
-registered state with no network call, all twelve golden certificates reproduce
-offline, and the paired experiment is recorded.
+**Release gates R0 through R3 are closed. R4 through R6 remain open.** All twelve
+cases reach their registered state with no network call and all twelve golden
+certificates reproduce offline. The recorded comparison uses the visible-tests
+baseline, not the PRD-FR-002 direct-review agent baseline. R4 and R5 therefore
+remain open until that key-gated arm is committed and validates through the
+five-command path; R6 also requires the final video.
 
 ## Measured result
 
@@ -128,10 +131,10 @@ Every one of the nine unsafe candidates passes its own visible test. That is the
 point of the benchmark: none of them is caught by the check a reviewer would
 naturally run.
 
-`make baseline` and `make evaluate` still exit non-zero with `EVIDENCE_NOT_BUILT`
-until there is committed evidence for them to verify. That is deliberate: a
-judge-facing command that passes without verifying anything is worse than one
-that says why it cannot.
+`make baseline` exits non-zero with `EVIDENCE_NOT_BUILT` until committed
+direct-review agent records exist. `make evaluate` validates the existing
+visible-tests comparison. That distinction is deliberate: a judge-facing
+command must not imply that a substitute baseline satisfies PRD-FR-002.
 
 ---
 
