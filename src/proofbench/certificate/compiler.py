@@ -39,18 +39,6 @@ from proofbench.tracing.hashes import canonical_json, digest_json, hash_file, sh
 TEMPLATES = Path(__file__).parent / "templates"
 EVALUATOR_VERSION = "1.0"
 
-KNOWN_LIMITS = [
-    "One world (tenant isolation) is implemented. Money, rolling compatibility, "
-    "interruption, rollback, lock budget, and audit history are not yet executed, "
-    "so this certificate says nothing about them.",
-    "No agent participated in this run. The contract, world selection, and any "
-    "remediation are absent by design at this stage, not omitted by failure.",
-    "Possible impact is empty because it is derived from contract analysis, which "
-    "is not implemented. Only confirmed impact is reported.",
-    "ProofBench reviews a candidate in a sandbox. It does not approve, merge, or "
-    "apply a migration, and READY_FOR_REVIEW is not an approval.",
-]
-
 
 def _environment(resolved_image_id: str | None) -> EnvironmentRecord:
     return EnvironmentRecord(
@@ -62,8 +50,42 @@ def _environment(resolved_image_id: str | None) -> EnvironmentRecord:
     )
 
 
-def replay_command(run_dir: Path) -> str:
-    return f"uv run proofbench replay {run_dir.as_posix()}/certificate.json"
+def replay_command() -> str:
+    """Return a portable command for use from inside the bundle directory."""
+    return "uv run proofbench replay certificate.json"
+
+
+def _known_limits(
+    decision: DecisionRecord,
+    world_results: list[WorldResult],
+    trajectory: TrajectorySummary,
+) -> list[str]:
+    """Describe the evidence this specific run did and did not produce."""
+    worlds = sorted(result.world for result in world_results)
+    if worlds:
+        world_limit = (
+            "World evidence is limited to the checks selected and executed for this case: "
+            f"{', '.join(worlds)}."
+        )
+    else:
+        world_limit = (
+            "No deterministic world executed in this run; the recorded decision was made "
+            "before world execution."
+        )
+
+    limits = [world_limit]
+    if not any(stage.startswith("agent:") for stage in trajectory.stages):
+        limits.append("No agent participated in this run.")
+    if not decision.possible:
+        limits.append(
+            "No hypothetical blast-radius findings were recorded. Only impacts supported "
+            "by executed evidence appear as confirmed impact."
+        )
+    limits.append(
+        "ProofBench reviews a candidate in a sandbox. It does not approve, merge, or "
+        "apply a migration, and READY_FOR_REVIEW is not an approval."
+    )
+    return limits
 
 
 def build_certificate(
@@ -97,7 +119,7 @@ def build_certificate(
             confirmed_blast_radius=list(decision.confirmed),
             required_action=decision.required_action,
             human_ruling=None,
-            replay_command=replay_command(run_dir),
+            replay_command=replay_command(),
         ),
         decision=decision,
         world_results=world_results,
@@ -106,7 +128,7 @@ def build_certificate(
         trajectory=trajectory,
         environment=_environment(resolved_image_id),
         inputs_digest=loaded.inputs_digest,
-        known_limits=KNOWN_LIMITS,
+        known_limits=_known_limits(decision, world_results, trajectory),
     )
 
 

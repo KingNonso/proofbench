@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C07/certificate.json
+uv run proofbench replay certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `276ad6e0e3658a2b3b0ea1a619bcdf53d3cf723827fab560c74f27ff0a63df
 
 ## Trajectory
 
-12 events, root `938de759edc2adf1`.
+12 events, root `4d35f09d18273382`.
 
 1. [ingest] reviewing C07: Rewrite payments to add a non-null column with a volatile default
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -76,7 +76,6 @@ Manifest: `manifest.json`
 
 ## Known limits
 
-- One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.
-- No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.
-- Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.
+- World evidence is limited to the checks selected and executed for this case: locks.
+- No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.
 - ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.

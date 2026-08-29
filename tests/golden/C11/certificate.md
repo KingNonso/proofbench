@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C11/certificate.json
+uv run proofbench replay certificate.json
 ```
 
 ---
@@ -50,7 +50,7 @@ Semantic digest: `52d49068c43c4094fe778a30fbed5720aafa86c9632c00d7dfd7a58612cf83
 
 ## Trajectory
 
-14 events, root `291a237d225fddcd`.
+14 events, root `7e029d8741afa8e9`.
 
 1. [ingest] reviewing C11: Add a nullable settlement reference by expand, backfill, verify and contract
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -82,7 +82,6 @@ Manifest: `manifest.json`
 
 ## Known limits
 
-- One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.
-- No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.
-- Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.
+- World evidence is limited to the checks selected and executed for this case: money, rls.
+- No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.
 - ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.

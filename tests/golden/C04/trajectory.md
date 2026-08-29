@@ -1,6 +1,6 @@
 # Trajectory — C04
 
-Run `C04`. 12 events. Trace root `e0592e54a1c8e3ad`.
+Run `C04`. 12 events. Trace root `97f69ef748968c9d`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.

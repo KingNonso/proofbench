@@ -204,7 +204,7 @@
   <!-- First screen: PRD-FR-060. All seven fields, no scrolling. -->
   <div class="masthead">
     <h1>Migration Change Certificate · <span class="case">C12</span></h1>
-    <span class="run mono">run C12 · 2026-08-28 23:12:22.429996+00:00</span>
+    <span class="run mono">run C12 · 2026-08-29 00:10:24.040168+00:00</span>
   </div>
 
   <section class="screen">
@@ -221,7 +221,7 @@
       <dt>Required action</dt><dd>A qualified engineer reviews the certificate and the candidate migration. This is not an automatic approval.</dd>
       <dt>Human ruling</dt><dd>none required</dd>
     </dl>
-    <pre class="replay">uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C12/certificate.json</pre>
+    <pre class="replay">uv run proofbench replay certificate.json</pre>
   </section>
 
   <h2>Decision</h2>
@@ -290,7 +290,7 @@
 
   <h2>Trajectory</h2>
   <p class="note">
-    24 events, root <code>ecaf2d0b16a563a9</code>.
+    24 events, root <code>2b2112fdeee3625a</code>.
     Observable actions only; no hidden reasoning is recorded.
   </p>
   <ol class="timeline">
@@ -308,5 +308,5 @@
   </table>
 
   <h2>Known limits</h2>
-  <ul><li>One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.</li><li>No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.</li><li>Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.</li><li>ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.</li></ul>
+  <ul><li>World evidence is limited to the checks selected and executed for this case: audit, interruption, locks, money, rls, rollback, rolling.</li><li>No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.</li><li>ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.</li></ul>
 </main>

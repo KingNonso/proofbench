@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C05/certificate.json
+uv run proofbench replay certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `585cddb88b1687a011fbe6296e87949b7eaf5bd261b4af67e326f8cad8476e
 
 ## Trajectory
 
-12 events, root `cf73bcc0d7b1bab4`.
+12 events, root `6df7d2fb4923f202`.
 
 1. [ingest] reviewing C05: Drop the old amount column after adding a scaled replacement
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -76,7 +76,6 @@ Manifest: `manifest.json`
 
 ## Known limits
 
-- One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.
-- No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.
-- Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.
+- World evidence is limited to the checks selected and executed for this case: rolling.
+- No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.
 - ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.

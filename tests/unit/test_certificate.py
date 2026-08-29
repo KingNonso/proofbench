@@ -144,9 +144,16 @@ def test_semantic_digest_changes_with_the_decision(bundle):
 def test_known_limits_are_stated_rather_than_implied(bundle):
     _, cert, _ = bundle
     joined = " ".join(cert.known_limits).lower()
-    assert "not yet executed" in joined
+    assert "rls" in joined
     assert "no agent participated" in joined
+    assert "hypothetical blast-radius findings" in joined
     assert "not an approval" in joined
+
+
+def test_replay_command_contains_no_host_path(bundle):
+    _, cert, manifest = bundle
+    assert cert.first_screen.replay_command == "uv run proofbench replay certificate.json"
+    assert manifest.replay_command == cert.first_screen.replay_command
 
 
 def test_certificate_round_trips_through_canonical_json(bundle):

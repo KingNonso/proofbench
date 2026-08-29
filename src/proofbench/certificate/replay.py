@@ -107,7 +107,7 @@ def replay(certificate_path: Path, *, benchmark_root: Path) -> ReplayReport:
         )
 
     report = ReplayReport(
-        certificate=str(certificate_path),
+        certificate=certificate_path.name,
         run_id=cert.run_id,
         case_id=cert.case_id,
         replayed_at=datetime.now(UTC),

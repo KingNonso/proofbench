@@ -16,7 +16,7 @@ Nothing confirmed.
 ## Replay
 
 ```bash
-uv run proofbench replay /Users/nonso/code/projects/proofbench/tests/golden/C10/certificate.json
+uv run proofbench replay certificate.json
 ```
 
 ---
@@ -46,7 +46,7 @@ Semantic digest: `bf348411eefee157117d363ade30e08d301b13baa219b1a67494ea06ba6aa7
 
 ## Trajectory
 
-12 events, root `1b58aec9c445c64f`.
+12 events, root `c4b0d86afee8da3c`.
 
 1. [ingest] reviewing C10: Compact audit history while adding a retention column
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -76,7 +76,6 @@ Manifest: `manifest.json`
 
 ## Known limits
 
-- One world (tenant isolation) is implemented. Money, rolling compatibility, interruption, rollback, lock budget, and audit history are not yet executed, so this certificate says nothing about them.
-- No agent participated in this run. The contract, world selection, and any remediation are absent by design at this stage, not omitted by failure.
-- Possible impact is empty because it is derived from contract analysis, which is not implemented. Only confirmed impact is reported.
+- World evidence is limited to the checks selected and executed for this case: audit.
+- No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.
 - ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.
