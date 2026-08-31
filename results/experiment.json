@@ -3,6 +3,10 @@
     "baseline_visible_tests",
     "migration_court"
   ],
+  "budget": {
+    "max_total_tokens_per_case_run": 150000,
+    "policy": "identical ceiling for every arm; over-budget runs are invalidated"
+  },
   "case_hashes": {
     "C01": "ff42d8e59ceb0bf9919c011ac302e72acce27ac4808c379a7806389f6e99401a",
     "C02": "68b91bf36323b54d4aa19a9410d43dfe3866b3d65d9ad1ace88c6b77cdb00e6a",
@@ -31,15 +35,39 @@
     "C11",
     "C12"
   ],
-  "commit": "44b8441b8fbcb80fb42ccb3ccff7164e45ca58e2",
+  "commit": "84dc36bcd76079dbbacf41192af0cb19aa502b1f",
+  "experiment_hash": "17c348d95b0af3cbeae8d0ecef8c3a8aa3ba43116fbf7d6286c761dad697276b",
   "host": {
     "platform": "macOS-14.1-x86_64-i386-64bit",
     "python": "3.12.12"
   },
-  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
+  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a live provider (an authenticated subscription CLI or an API profile), and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
   "policy_hash": "ff9be070bfad2117c781dae04e0afd75378c350aa180725d689762d5e57a79bf",
+  "postgres_image": "postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "prompt_hashes": {
+    "contract_analyst_v1": "2b7db649fbdc0bf33e3f3f366913849b3bf66ee016ffa70b9a05594a33624b8a",
+    "direct_reviewer_v1": "121aa78b712067f4b2252e30942e093d39965dd443fa539d6cf712fd99794184",
+    "remediation_engineer_v1": "d2775c0570fdcd2a7d68ccf48ffaebc6199974b4b9af0a9158227ba7734da778",
+    "test_designer_v1": "35104b511054ad3ca589a16f7eefd1162defc907291a6f5245ce2e9433d4044f"
+  },
   "protocol": "PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3",
-  "schema_version": "1.0",
-  "started_at": "2026-08-28T23:12:30.139905+00:00",
-  "working_tree_dirty": true
+  "provider": null,
+  "role": "primary",
+  "schema_version": "1.1",
+  "seeds": {
+    "C01": 20260828,
+    "C02": 20260828,
+    "C03": 20260828,
+    "C04": 20260828,
+    "C05": 20260828,
+    "C06": 20260828,
+    "C07": 20260828,
+    "C08": 20260828,
+    "C09": 20260828,
+    "C10": 20260828,
+    "C11": 20260828,
+    "C12": 20260828
+  },
+  "started_at": "2026-08-31T08:58:42.520712+00:00",
+  "working_tree_dirty": false
 }

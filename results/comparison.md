@@ -1,8 +1,17 @@
 # Paired comparison
 
-Generated 2026-08-28T23:14:50.022340+00:00. Protocol: PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3.
+Generated 2026-08-31T09:01:47.920282+00:00. Protocol: PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3.
 
-Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.
+Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a live provider (an authenticated subscription CLI or an API profile), and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.
+
+## Provider
+
+- `baseline_visible_tests`: none (deterministic, no model call) (resolved model: —)
+- `migration_court`: fake (resolved model: —)
+
+One summary describes one provider's experiment. Metrics from
+different providers are never pooled; building a summary from
+mixed-provider records is refused outright.
 
 ## Primary metric and guardrails
 
@@ -13,7 +22,7 @@ Counts before rates. A rate without its denominator says nothing.
 | baseline_visible_tests | 9/9 (100%) | 2/2 | 0/1 | 0 |
 | migration_court | 0/9 (0%) | 2/2 | 1/1 | 0 |
 
-Clean replay rate: **12/12** golden certificates reproduced offline (`make replay`).
+Clean replay rate: **12/12** golden certificates reproduced on three consecutive offline replays (`make replay`).
 
 ### Repeat stability
 
@@ -84,9 +93,12 @@ tell you it fires for the right reason.
 
 | Arm | Wall time | Model calls | Input tokens | Output tokens | Est. cost USD |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| baseline_visible_tests | 24.0s | 0 | 0 | 0 | 0.0000 |
-| migration_court | 39.1s | 36 | 0 | 0 | 0.0000 |
+| baseline_visible_tests | 22.4s | 0 | 0 | 0 | 0.0000 |
+| migration_court | 32.7s | 24 | 0 | 0 | 0.0000 |
 
-Cost is a list-price estimate from recorded token counts, not a billed
-figure. Human time per task is not measured here and is discussed in the
+Cost is an estimate, never a billed figure: the Claude CLI reports its own
+list-price estimate, the API adapter computes one from recorded token
+counts, and a provider with no price basis reports zero, which means
+'not measured' — the experiment manifest records each provider's cost
+basis. Human time per task is not measured here and is discussed in the
 changelog rather than reported as a number nobody timed.

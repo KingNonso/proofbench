@@ -32,12 +32,29 @@ def request_for(agent: str = "contract_analyst") -> ModelRequest:
 
 def codex_events(
     *,
-    model: str = "gpt-5.5",
+    model: str | None = None,
     text: str | None = '{"ok": true}',
     usage: bool = True,
     tool_item: str | None = None,
+    failed: bool = False,
 ) -> str:
-    lines: list[str] = [json.dumps({"type": "session.created", "session": {"model": model}})]
+    # Mirrors codex-cli 0.151.0: thread.started carries no model, item-level
+    # errors are warnings, and a failed turn emits stream-level error events.
+    lines: list[str] = [json.dumps({"type": "thread.started", "thread_id": "t1"})]
+    if model is not None:
+        lines.append(json.dumps({"type": "session.created", "session": {"model": model}}))
+    lines.append(
+        json.dumps(
+            {"type": "item.completed", "item": {"type": "error", "message": "skills shortened"}}
+        )
+    )
+    if failed:
+        lines.append(json.dumps({"type": "error", "message": "status 400: model not supported"}))
+        lines.append(
+            json.dumps(
+                {"type": "turn.failed", "error": {"message": "status 400: model not supported"}}
+            )
+        )
     if tool_item:
         lines.append(json.dumps({"type": "item.completed", "item": {"type": tool_item}}))
     if text is not None:
@@ -62,9 +79,16 @@ def claude_payload(
     result: str = '{"ok": true}',
     is_error: bool = False,
     num_turns: int = 1,
-    usage: dict[str, int] | None = None,
+    housekeeping: bool = False,
+    drop_model_usage: bool = False,
     cost: float = 0.0421,
 ) -> str:
+    # modelUsage is the accounting of record; the shape mirrors what Claude
+    # Code 2.1.251 actually emits, including the small housekeeping model that
+    # appears alongside the answering one.
+    model_usage: dict[str, object] = {model: {"inputTokens": 100, "outputTokens": 40}}
+    if housekeeping:
+        model_usage["claude-haiku-4-5-20251001"] = {"inputTokens": 897, "outputTokens": 10}
     payload: dict[str, object] = {
         "type": "result",
         "subtype": "success" if not is_error else "error_during_execution",
@@ -72,15 +96,8 @@ def claude_payload(
         "num_turns": num_turns,
         "result": result,
         "total_cost_usd": cost,
-        "modelUsage": {model: {"inputTokens": 100, "outputTokens": 40}},
-        "usage": usage
-        if usage is not None
-        else {
-            "input_tokens": 80,
-            "cache_creation_input_tokens": 15,
-            "cache_read_input_tokens": 5,
-            "output_tokens": 40,
-        },
+        "modelUsage": {} if drop_model_usage else model_usage,
+        "usage": {"input_tokens": 100, "output_tokens": 40},
     }
     return json.dumps(payload)
 
@@ -212,10 +229,30 @@ def test_codex_happy_path_reports_text_usage_and_model(monkeypatch) -> None:
     response = run_sync(CodexCliProvider().complete(request_for()))
 
     assert response.text == '{"ok": true}'
+    # The 0.151.0 stream reports no model, and codex fails an unsupported
+    # model's turn rather than substituting - so a completed turn resolves to
+    # the pinned model.
     assert response.model == "gpt-5.5"
     assert response.usage.input_tokens == 150  # fresh plus cached input
     assert response.usage.output_tokens == 45
     assert response.usage.cost_usd_micros == 0  # no invented cost figure
+
+
+def test_codex_failed_turn_is_evidence_incomplete(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "_run_cli", RunCapture(codex_events(failed=True, text=None)))
+
+    with pytest.raises(EvidenceIncompleteError, match="failed turn"):
+        run_sync(CodexCliProvider().complete(request_for()))
+
+
+def test_codex_item_level_errors_are_warnings_not_failures(monkeypatch) -> None:
+    # Every fixture stream carries the CLI's "skills shortened" notice; the
+    # happy path passing at all pins that item-level errors do not fail a run.
+    monkeypatch.setattr(cli, "_run_cli", RunCapture(codex_events()))
+
+    response = run_sync(CodexCliProvider().complete(request_for()))
+
+    assert response.text == '{"ok": true}'
 
 
 def test_codex_missing_usage_is_evidence_incomplete(monkeypatch) -> None:
@@ -239,7 +276,7 @@ def test_codex_tool_activity_is_refused(monkeypatch) -> None:
         run_sync(CodexCliProvider().complete(request_for()))
 
 
-def test_codex_model_fallback_is_refused(monkeypatch) -> None:
+def test_codex_model_fallback_is_refused_when_a_model_is_reported(monkeypatch) -> None:
     monkeypatch.setattr(cli, "_run_cli", RunCapture(codex_events(model="gpt-5-mini")))
 
     with pytest.raises(EvidenceIncompleteError, match="fallback"):
@@ -307,10 +344,24 @@ def test_claude_multiple_turns_are_refused(monkeypatch) -> None:
 
 
 def test_claude_missing_usage_is_evidence_incomplete(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "_run_cli", RunCapture(claude_payload(usage={})))
+    monkeypatch.setattr(cli, "_run_cli", RunCapture(claude_payload(drop_model_usage=True)))
 
-    with pytest.raises(EvidenceIncompleteError, match="no token usage"):
+    with pytest.raises(EvidenceIncompleteError, match="no per-model token usage"):
         run_sync(ClaudeCliProvider().complete(request_for()))
+
+
+def test_claude_housekeeping_model_is_counted_but_never_resolved(monkeypatch) -> None:
+    # Claude Code runs a small housekeeping model alongside the answering one
+    # (observed live against 2.1.251). Its consumption is real and is counted;
+    # treating it as the answering model would be a false fallback alarm, and
+    # hiding its usage would under-report what the run cost.
+    monkeypatch.setattr(cli, "_run_cli", RunCapture(claude_payload(housekeeping=True)))
+
+    response = run_sync(ClaudeCliProvider().complete(request_for()))
+
+    assert response.model == "claude-opus-5"
+    assert response.usage.input_tokens == 997  # both models' input
+    assert response.usage.output_tokens == 50
 
 
 def test_claude_unparseable_output_is_evidence_incomplete(monkeypatch) -> None:

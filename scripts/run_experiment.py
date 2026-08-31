@@ -57,8 +57,10 @@ REPEATS = 3
 # The condition-level model-token ceiling, identical for every arm of one
 # experiment (PRD-FR-002 "same budget"): the final arm spends it across its
 # agents, the direct reviewer gets all of it. Enforced per case-run by the
-# budget ledger, which invalidates a run that crosses it.
-DEFAULT_MAX_TOTAL_TOKENS = 150_000
+# budget ledger, which invalidates a run that crosses it. Sized for the
+# measured CLI harness overhead (~25-29k input tokens per codex exec call,
+# observed live): three agent calls plus one repair round must fit.
+DEFAULT_MAX_TOTAL_TOKENS = 250_000
 
 DETERMINISTIC_NOTE = (
     "Both arms here are deterministic and make no network call. The baseline is "

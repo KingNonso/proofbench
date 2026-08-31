@@ -208,19 +208,32 @@ class CodexCliProvider:
                 self._argv(workdir), stdin_text=prompt, timeout=self.timeout, cwd=workdir
             )
         text, usage, resolved = _parse_codex_events(
-            stdout, agent=request.agent, stderr=stderr, returncode=returncode
+            stdout,
+            agent=request.agent,
+            stderr=stderr,
+            returncode=returncode,
+            requested=self.model,
         )
         _fallback_guard(self.model, resolved, agent=request.agent)
         return ModelResponse(text=text, model=resolved, usage=usage, stop_reason="end_turn")
 
 
 def _parse_codex_events(
-    stdout: str, *, agent: str, stderr: str, returncode: int
+    stdout: str, *, agent: str, stderr: str, returncode: int, requested: str
 ) -> tuple[str, Usage, str]:
     """Extract the final agent message, token usage, and resolved model.
 
-    Reasoning items are discarded: they are not the observable answer, and
-    grading them would grade prose. Tool items are refused outright.
+    Shapes verified live against codex-cli 0.151.0. Reasoning items are
+    discarded: they are not the observable answer, and grading them would grade
+    prose. Tool items are refused outright. Stream-level ``error`` and
+    ``turn.failed`` events are fatal; ``item``-level errors are the CLI's
+    warnings (skill-budget notices and the like) and are not.
+
+    Model identity: the JSONL stream carries no model field, and codex has no
+    fallback mechanism — an unsupported model fails the turn with a server 400
+    rather than substituting (verified live, ``turn.failed``). A completed turn
+    under ``-m <model>`` was therefore served by that model; if a future
+    version does report a model, a mismatch is refused.
     """
     detail = {"agent": agent, "returncode": returncode, "stderr": stderr[-_STDERR_TAIL:]}
 
@@ -242,10 +255,16 @@ def _parse_codex_events(
     input_tokens = 0
     output_tokens = 0
     saw_usage = False
-    resolved: str | None = None
+    reported: str | None = None
     tool_items: list[str] = []
+    fatal: list[str] = []
 
     for event in events:
+        event_type = str(event.get("type", ""))
+        if event_type in ("error", "turn.failed"):
+            error = event.get("error")
+            message = error.get("message") if isinstance(error, dict) else event.get("message")
+            fatal.append(str(message or event_type))
         item = event.get("item")
         if isinstance(item, dict):
             item_type = str(item.get("type") or item.get("item_type") or "")
@@ -262,8 +281,13 @@ def _parse_codex_events(
             output_tokens += int(usage.get("output_tokens", 0))
         for candidate in (event, event.get("session"), event.get("payload")):
             if isinstance(candidate, dict) and isinstance(candidate.get("model"), str):
-                resolved = candidate["model"]
+                reported = candidate["model"]
 
+    if fatal:
+        raise EvidenceIncompleteError(
+            "codex reported a failed turn",
+            detail={**detail, "errors": "; ".join(fatal)[:800]},
+        )
     if tool_items:
         raise EvidenceIncompleteError(
             "codex performed tool activity in a no-tools configuration",
@@ -273,8 +297,8 @@ def _parse_codex_events(
         raise EvidenceIncompleteError("codex returned no agent message", detail=detail)
     if not saw_usage:
         raise EvidenceIncompleteError("codex reported no token usage", detail=detail)
-    if resolved is None:
-        raise EvidenceIncompleteError("codex did not report which model answered", detail=detail)
+
+    resolved = reported if reported is not None else requested
     return text, Usage(input_tokens=input_tokens, output_tokens=output_tokens), resolved
 
 
@@ -341,16 +365,27 @@ class ClaudeCliProvider:
                 self._argv(system), stdin_text=user, timeout=self.timeout, cwd=workdir
             )
         text, usage, resolved = _parse_claude_result(
-            stdout, agent=request.agent, stderr=stderr, returncode=returncode
+            stdout,
+            agent=request.agent,
+            stderr=stderr,
+            returncode=returncode,
+            requested=self.model,
         )
-        _fallback_guard(self.model, resolved, agent=request.agent)
         return ModelResponse(text=text, model=resolved, usage=usage, stop_reason="end_turn")
 
 
 def _parse_claude_result(
-    stdout: str, *, agent: str, stderr: str, returncode: int
+    stdout: str, *, agent: str, stderr: str, returncode: int, requested: str
 ) -> tuple[str, Usage, str]:
-    """Extract the result text, token usage, and resolved model from JSON output."""
+    """Extract the result text, token usage, and resolved model from JSON output.
+
+    ``modelUsage`` is the accounting of record: it lists every model the
+    harness used, including a small housekeeping model alongside the one that
+    answered (observed against Claude Code 2.1.251). The resolved model is the
+    entry matching the *requested* model — its absence is a fallback, refused —
+    while token totals and cost cover every entry, because the housekeeping
+    calls are consumption someone pays for, not noise to hide.
+    """
     detail = {"agent": agent, "returncode": returncode, "stderr": stderr[-_STDERR_TAIL:]}
     try:
         payload = json.loads(stdout)
@@ -378,24 +413,38 @@ def _parse_claude_result(
     if not isinstance(text, str) or not text:
         raise EvidenceIncompleteError("claude returned no result text", detail=detail)
 
-    usage = payload.get("usage")
-    if not isinstance(usage, dict) or "output_tokens" not in usage:
-        raise EvidenceIncompleteError("claude reported no token usage", detail=detail)
-    # Billed input is the sum of fresh, cache-write, and cache-read tokens.
-    input_tokens = (
-        int(usage.get("input_tokens", 0))
-        + int(usage.get("cache_creation_input_tokens", 0))
-        + int(usage.get("cache_read_input_tokens", 0))
-    )
-    output_tokens = int(usage.get("output_tokens", 0))
-
     model_usage = payload.get("modelUsage")
     if not isinstance(model_usage, dict) or not model_usage:
-        raise EvidenceIncompleteError("claude did not report which model answered", detail=detail)
-    resolved = max(
-        model_usage,
-        key=lambda name: _model_usage_tokens(model_usage[name]),
+        raise EvidenceIncompleteError("claude reported no per-model token usage", detail=detail)
+
+    resolved = next(
+        (
+            name
+            for name, stats in model_usage.items()
+            if name == requested
+            or name.startswith(f"{requested}-")
+            or (isinstance(stats, dict) and stats.get("canonicalModel") == requested)
+        ),
+        None,
     )
+    if resolved is None:
+        raise EvidenceIncompleteError(
+            "model fallback detected: the requested model served no call",
+            detail={**detail, "requested": requested, "resolved": ", ".join(sorted(model_usage))},
+        )
+
+    input_tokens = 0
+    output_tokens = 0
+    for stats in model_usage.values():
+        if not isinstance(stats, dict):
+            continue
+        # Billed input is the sum of fresh, cache-write, and cache-read tokens.
+        input_tokens += (
+            int(stats.get("inputTokens", 0))
+            + int(stats.get("cacheCreationInputTokens", 0))
+            + int(stats.get("cacheReadInputTokens", 0))
+        )
+        output_tokens += int(stats.get("outputTokens", 0))
 
     # Float-to-integer conversion happens once, here, at the boundary — the
     # same pattern as the live adapter's estimate. Micros from then on.
@@ -410,9 +459,3 @@ def _parse_claude_result(
         ),
         resolved,
     )
-
-
-def _model_usage_tokens(stats: Any) -> int:
-    if not isinstance(stats, dict):
-        return 0
-    return int(stats.get("inputTokens", 0)) + int(stats.get("outputTokens", 0))

@@ -10,9 +10,9 @@
       "safe_acceptance_rate": 1.0,
       "safe_marked_ready": 2,
       "safe_total": 2,
-      "schema_version": "1.0",
+      "schema_version": "1.1",
       "total_cost_usd_micros": 0,
-      "total_duration_ms": 23968,
+      "total_duration_ms": 22403,
       "total_input_tokens": 0,
       "total_model_calls": 0,
       "total_output_tokens": 0,
@@ -30,11 +30,11 @@
       "safe_acceptance_rate": 1.0,
       "safe_marked_ready": 2,
       "safe_total": 2,
-      "schema_version": "1.0",
+      "schema_version": "1.1",
       "total_cost_usd_micros": 0,
-      "total_duration_ms": 39106,
+      "total_duration_ms": 32662,
       "total_input_tokens": 0,
-      "total_model_calls": 36,
+      "total_model_calls": 24,
       "total_output_tokens": 0,
       "unsafe_escape_rate": 0.0,
       "unsafe_marked_ready": 0,
@@ -42,12 +42,13 @@
     }
   },
   "clean_replay": {
-    "definition": "golden certificates that reproduced offline / certificates replayed",
+    "definition": "golden certificates that reproduced on three consecutive offline replays / certificates replayed",
     "denominator": 12,
     "numerator": 12
   },
-  "generated_at": "2026-08-28T23:14:50.022340+00:00",
-  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a provider key, and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
+  "experiment_hash": "17c348d95b0af3cbeae8d0ecef8c3a8aa3ba43116fbf7d6286c761dad697276b",
+  "generated_at": "2026-08-31T09:01:47.920282+00:00",
+  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a live provider (an authenticated subscription CLI or an API profile), and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
   "primary_metric": {
     "basis": "first pass of each arm; repeats are reported under repeat_stability",
     "by_arm": {
@@ -66,6 +67,16 @@
     "name": "unsafe_migration_escape_rate"
   },
   "protocol": "PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3",
+  "providers": {
+    "baseline_visible_tests": {
+      "models": [],
+      "provider": ""
+    },
+    "migration_court": {
+      "models": [],
+      "provider": "fake"
+    }
+  },
   "records_total": 40,
   "repeat_stability": {
     "baseline_visible_tests": {
@@ -101,5 +112,5 @@
       }
     }
   },
-  "schema_version": "1.1"
+  "schema_version": "1.2"
 }
