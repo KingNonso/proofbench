@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -55,6 +55,7 @@ def run_arm(
     repeat: int = 1,
     provider: ModelProvider | None = None,
     max_total_tokens: int | None = None,
+    on_record: Callable[[RunRecord], None] | None = None,
 ) -> list[RunRecord]:
     """Run one arm over the given cases and score each run after it closes.
 
@@ -62,6 +63,10 @@ def run_arm(
     fixture-replay final arm is not a comparison, it is a category error, and
     it is exactly what this function used to do. ``max_total_tokens`` is the
     condition ceiling, identical for every arm of one experiment (PRD-FR-002).
+
+    ``on_record`` fires once per closed, scored record, so a caller can
+    checkpoint a long live experiment as it goes: a killed process then loses
+    at most the case-run in flight, not an arm's worth of paid model calls.
     """
     records: list[RunRecord] = []
 
@@ -115,14 +120,15 @@ def run_arm(
             ),
             access_log_dir=runs_root,
         )
-        records.append(
-            record.model_copy(
-                update={
-                    "case_class": oracle.case_class.value,
-                    "expected_state": oracle.expected_initial_state.value,
-                }
-            )
+        scored = record.model_copy(
+            update={
+                "case_class": oracle.case_class.value,
+                "expected_state": oracle.expected_initial_state.value,
+            }
         )
+        records.append(scored)
+        if on_record is not None:
+            on_record(scored)
 
     return records
 

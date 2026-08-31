@@ -34,6 +34,7 @@ from proofbench.certificate.replay import replay as replay_bundle  # noqa: E402
 from proofbench.config import POSTGRES_IMAGE  # noqa: E402
 from proofbench.evaluation import comparison  # noqa: E402
 from proofbench.evaluation.baseline import REVIEWER_PROMPT  # noqa: E402
+from proofbench.evaluation.records import RunRecord  # noqa: E402
 from proofbench.evaluation.runner import (  # noqa: E402
     ALL_CASES,
     ARM_DIRECT_REVIEW,
@@ -44,7 +45,7 @@ from proofbench.evaluation.runner import (  # noqa: E402
 )
 from proofbench.providers.base import ModelProvider  # noqa: E402
 from proofbench.providers.registry import create_provider, provider_kinds  # noqa: E402
-from proofbench.tracing.hashes import hash_file  # noqa: E402
+from proofbench.tracing.hashes import canonical_json, hash_file  # noqa: E402
 
 BENCHMARK = REPO_ROOT / "benchmark" / "aidledger"
 RESULTS = REPO_ROOT / "results"
@@ -259,6 +260,61 @@ def freeze_experiment(
     return record
 
 
+def checkpoint_writer(checkpoint: Path):  # noqa: ANN201 - local callback factory
+    """Append each closed record the moment it exists.
+
+    A live experiment is a long process spending real model budget; a kill
+    must cost at most the case-run in flight. The checkpoint is the ledger
+    that makes --resume a reuse of recorded evidence, never a silent retry.
+    """
+
+    def write(record: RunRecord) -> None:
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        with checkpoint.open("a", encoding="utf-8") as handle:
+            handle.write(canonical_json(record.model_dump(mode="json")).decode("utf-8") + "\n")
+        flag = "ready" if record.marked_ready else record.outcome
+        print(
+            f"  r{record.repeat} {record.case_id} {record.case_class:<18} {flag}",
+            flush=True,
+        )
+
+    return write
+
+
+def load_checkpoint(checkpoint: Path) -> list[RunRecord]:
+    if not checkpoint.is_file():
+        return []
+    return comparison.read_raw_runs(checkpoint)
+
+
+def resume_experiment(
+    experiment_path: Path, *, provider_kind: str, role: str, protocol: str
+) -> dict[str, object]:
+    """Reuse the frozen record on resume — never re-freeze mid-experiment.
+
+    Resuming a *different* experiment (other commit, provider, role, or
+    protocol) would stitch two experiments into one result set, so every
+    mismatch refuses.
+    """
+    if not experiment_path.is_file():
+        raise SystemExit(f"cannot resume: no frozen experiment record at {experiment_path}")
+    frozen: dict[str, object] = json.loads(experiment_path.read_text(encoding="utf-8"))
+    commit, _ = git_state()
+    problems = []
+    if frozen.get("commit") != commit:
+        problems.append(f"frozen commit {frozen.get('commit')} is not HEAD {commit}")
+    frozen_kind = (frozen.get("provider") or {}).get("kind")  # type: ignore[union-attr]
+    if frozen_kind != provider_kind:
+        problems.append(f"frozen provider {frozen_kind!r} is not {provider_kind!r}")
+    if frozen.get("role") != role:
+        problems.append(f"frozen role {frozen.get('role')!r} is not {role!r}")
+    if frozen.get("protocol") != protocol:
+        problems.append("frozen protocol differs")
+    if problems:
+        raise SystemExit("refusing to resume a different experiment:\n  " + "\n  ".join(problems))
+    return frozen
+
+
 def run_e1(
     args: argparse.Namespace,
     provider: ModelProvider,
@@ -281,29 +337,51 @@ def run_e1(
     )
 
     assert_manifest_frozen()
-    experiment = freeze_experiment(
-        protocol,
-        [ARM_SELF_REVIEW],
-        note,
-        role="changelog-e1",
-        provider_info=provider_info,
-        max_total_tokens=args.max_total_tokens,
-        out_dir=e1_dir,
-    )
+    checkpoint = args.runs_root / "e1" / "checkpoint.jsonl"
+    prior: list[RunRecord] = []
+    if args.resume:
+        prior = load_checkpoint(checkpoint)
+        experiment = resume_experiment(
+            e1_dir / "experiment.json",
+            provider_kind=args.provider,
+            role="changelog-e1",
+            protocol=protocol,
+        )
+        print(f"resuming: {len(prior)} recorded case-run(s) reused", flush=True)
+    else:
+        if checkpoint.is_file():
+            print(
+                f"a checkpoint exists at {checkpoint}; pass --resume to reuse its "
+                "recorded runs, or remove the runs root to start over",
+                file=sys.stderr,
+            )
+            return 2
+        experiment = freeze_experiment(
+            protocol,
+            [ARM_SELF_REVIEW],
+            note,
+            role="changelog-e1",
+            provider_info=provider_info,
+            max_total_tokens=args.max_total_tokens,
+            out_dir=e1_dir,
+        )
 
+    done = {(r.arm, r.case_id, r.repeat) for r in prior}
+    remaining = [c for c in ALL_CASES if (ARM_SELF_REVIEW, c, 1) not in done]
     print(f"--- {ARM_SELF_REVIEW} ---", flush=True)
-    records = run_arm(
-        ARM_SELF_REVIEW,
-        benchmark_root=BENCHMARK,
-        runs_root=args.runs_root / "e1",
-        case_ids=ALL_CASES,
-        repeat=1,
-        provider=provider,
-        max_total_tokens=args.max_total_tokens,
-    )
-    for record in records:
-        flag = "ready" if record.marked_ready else record.outcome
-        print(f"  r1 {record.case_id} {record.case_class:<18} {flag}", flush=True)
+    records = list(prior)
+    if remaining:
+        records += run_arm(
+            ARM_SELF_REVIEW,
+            benchmark_root=BENCHMARK,
+            runs_root=args.runs_root / "e1",
+            case_ids=remaining,
+            repeat=1,
+            provider=provider,
+            max_total_tokens=args.max_total_tokens,
+            on_record=checkpoint_writer(checkpoint),
+        )
+    records.sort(key=lambda r: (r.arm, r.repeat, r.case_id))
 
     comparison.write_raw_runs(records, e1_dir / "raw-runs.jsonl")
     comparison.write_per_case(records, e1_dir / "per-case.csv")
@@ -351,6 +429,12 @@ def main() -> int:
         action="store_true",
         help="let a live experiment run from a dirty tree (recorded either way)",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="reuse the case-runs recorded in the runs-root checkpoint after an "
+        "interrupted run of the SAME experiment (same commit, provider, role)",
+    )
     parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "runs" / "experiment")
     args = parser.parse_args()
 
@@ -390,21 +474,45 @@ def main() -> int:
         f"PRD-FR-070 fallback: 12 cases x {len(arms)} arms x 1 repeat, "
         f"plus {', '.join(REPEAT_CASES)} x{REPEATS}"
     )
-    experiment = freeze_experiment(
-        protocol,
-        arms,
-        note,
-        role=args.role,
-        provider_info=provider_info,
-        max_total_tokens=args.max_total_tokens,
-    )
+    checkpoint = args.runs_root / "checkpoint.jsonl"
+    prior: list[RunRecord] = []
+    if args.resume:
+        prior = load_checkpoint(checkpoint)
+        experiment = resume_experiment(
+            RESULTS / "experiment.json",
+            provider_kind=args.provider,
+            role=args.role,
+            protocol=protocol,
+        )
+        print(f"resuming: {len(prior)} recorded case-run(s) reused", flush=True)
+    else:
+        if checkpoint.is_file():
+            print(
+                f"a checkpoint exists at {checkpoint}; pass --resume to reuse its "
+                "recorded runs, or remove the runs root to start over",
+                file=sys.stderr,
+            )
+            return 2
+        experiment = freeze_experiment(
+            protocol,
+            arms,
+            note,
+            role=args.role,
+            provider_info=provider_info,
+            max_total_tokens=args.max_total_tokens,
+        )
 
-    records = []
+    done = {(r.arm, r.case_id, r.repeat) for r in prior}
+    on_record = checkpoint_writer(checkpoint)
+    records = list(prior)
     for arm in arms:
         print(f"--- {arm} ---", flush=True)
         for repeat in range(1, REPEATS + 1):
-            cases = ALL_CASES if repeat == 1 else REPEAT_CASES
-            arm_records = run_arm(
+            planned = ALL_CASES if repeat == 1 else REPEAT_CASES
+            cases = [case for case in planned if (arm, case, repeat) not in done]
+            if not cases:
+                continue
+            records += run_arm(
                 arm,
                 benchmark_root=BENCHMARK,
                 runs_root=args.runs_root,
@@ -412,11 +520,9 @@ def main() -> int:
                 repeat=repeat,
                 provider=provider,
                 max_total_tokens=args.max_total_tokens,
+                on_record=on_record,
             )
-            for record in arm_records:
-                flag = "ready" if record.marked_ready else record.outcome
-                print(f"  r{repeat} {record.case_id} {record.case_class:<18} {flag}", flush=True)
-            records.extend(arm_records)
+    records.sort(key=lambda r: (r.arm, r.repeat, r.case_id))
 
     print("--- replaying golden certificates ---", flush=True)
     clean_replay = replay_golden_bundles()
