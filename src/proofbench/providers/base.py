@@ -60,9 +60,17 @@ class ModelResponse(StrictModel):
 
 
 class ModelProvider(Protocol):
-    """The only way to reach a model."""
+    """The only way to reach a model.
+
+    ``mode`` carries a ``ProviderMode`` wire string ("live" or "fake") so a run
+    can record how its model calls were served without inspecting the concrete
+    class. It is an attribute of the provider, not of the run: the same run
+    kind can be served either way, and conflating the two is how a fixture
+    replay gets presented as a live result.
+    """
 
     name: str
+    mode: str
 
     async def complete(self, request: ModelRequest) -> ModelResponse: ...
 

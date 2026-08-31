@@ -21,6 +21,7 @@ class FakeProvider:
     """Serves canned responses; raises when asked for one it does not have."""
 
     name = "fake"
+    mode = "fake"
 
     def __init__(self, responses: dict[str, list[str]]) -> None:
         # agent name -> ordered responses. A list so a schema repair can be

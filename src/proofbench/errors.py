@@ -90,3 +90,14 @@ class EvidenceIncompleteError(ProofBenchError):
     """
 
     exit_code = ExitCode.EVIDENCE_INCOMPLETE
+
+
+class ProviderSelectionError(ProofBenchError):
+    """An unknown or unusable provider kind was requested.
+
+    A usage error, not an evidence state: nothing ran, so nothing is
+    incomplete. Reuses the existing USAGE exit code rather than minting a new
+    one, because exit codes are a public interface.
+    """
+
+    exit_code = ExitCode.USAGE

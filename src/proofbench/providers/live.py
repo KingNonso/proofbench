@@ -27,10 +27,18 @@ PRICE_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 }
 
 
+# The API's max_tokens covers thinking and answer together. The request's
+# max_output_tokens is the caller's answer budget; the headroom is a declared
+# allowance for adaptive thinking on top of it. Actual consumption is recorded
+# per call and enforced by the budget ledger, never assumed from this cap.
+THINKING_HEADROOM_TOKENS = 12_000
+
+
 class LiveProvider:
     """Anthropic Messages API adapter."""
 
     name = "anthropic"
+    mode = "live"
 
     def __init__(self, model: str = DEFAULT_MODEL, *, effort: str = "high") -> None:
         try:
@@ -60,7 +68,7 @@ class LiveProvider:
             # risks an HTTP timeout on a long answer.
             with self._client.messages.stream(
                 model=self.model,
-                max_tokens=16_000,
+                max_tokens=request.max_output_tokens + THINKING_HEADROOM_TOKENS,
                 system=system,
                 messages=turns,
                 thinking={"type": "adaptive"},
