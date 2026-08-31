@@ -109,19 +109,28 @@ def assert_manifest_frozen() -> None:
         )
 
 
+REPLAY_STABILITY_RUNS = 3
+
+
 def replay_golden_bundles() -> tuple[int, int]:
     """Replay every committed golden certificate and count the reproductions.
 
     PRD-FR-072 requires the clean replay rate in the report. Measured here, at
-    experiment time, rather than copied from the last time someone ran replay.
+    experiment time, rather than copied from the last time someone ran replay —
+    and measured to the PRD-FR-030..037 acceptance: a bundle counts as
+    reproduced only when three consecutive replays agree.
     """
     bundles = sorted(GOLDEN.glob("C*/certificate.json"))
     passed = 0
     for bundle in bundles:
-        report = replay_bundle(bundle, benchmark_root=BENCHMARK)
-        status = "reproduced" if report.ok else "MISMATCH"
-        print(f"  replay {report.case_id}: {status}", flush=True)
-        if report.ok:
+        reports = [
+            replay_bundle(bundle, benchmark_root=BENCHMARK)
+            for _ in range(REPLAY_STABILITY_RUNS)
+        ]
+        ok = all(report.ok for report in reports)
+        status = "reproduced 3x" if ok else "MISMATCH"
+        print(f"  replay {reports[0].case_id}: {status}", flush=True)
+        if ok:
             passed += 1
     return passed, len(bundles)
 

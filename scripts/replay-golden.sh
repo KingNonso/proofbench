@@ -22,19 +22,28 @@ MSG
   exit 3
 fi
 
+# PRD-FR-030..037 acceptance: the same golden inputs must produce the same
+# semantic results on THREE replay runs. One reproduction is a lucky draw;
+# three is stability. REPLAY_RUNS=1 exists for a quick local smoke, never for
+# the gate.
+runs="${REPLAY_RUNS:-3}"
+
 failed=0
 for bundle in "${bundles[@]}"; do
   case_dir="$(basename "$(dirname "$bundle")")"
-  echo "--- replaying ${case_dir} ---"
-  if ! uv run proofbench replay "$bundle"; then
-    failed=1
-  fi
+  echo "--- replaying ${case_dir} (${runs}x) ---"
+  for attempt in $(seq 1 "$runs"); do
+    if ! uv run proofbench replay "$bundle"; then
+      echo "MISMATCH on run ${attempt} of ${runs} for ${case_dir}" >&2
+      failed=1
+    fi
+  done
   echo
 done
 
 if [ "$failed" -ne 0 ]; then
-  echo "REPLAY MISMATCH: at least one golden certificate did not reproduce" >&2
+  echo "REPLAY MISMATCH: at least one golden certificate did not reproduce on every run" >&2
   exit 1
 fi
 
-echo "all ${#bundles[@]} golden certificate(s) reproduced"
+echo "all ${#bundles[@]} golden certificate(s) reproduced on ${runs} consecutive run(s)"

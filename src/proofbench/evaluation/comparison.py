@@ -198,7 +198,10 @@ def summarise(
         summary["clean_replay"] = {
             "numerator": clean_replay[0],
             "denominator": clean_replay[1],
-            "definition": "golden certificates that reproduced offline / certificates replayed",
+            "definition": (
+                "golden certificates that reproduced on three consecutive offline "
+                "replays / certificates replayed"
+            ),
         }
     return summary
 
@@ -255,7 +258,7 @@ def write_comparison(records: list[RunRecord], summary: dict[str, object], path:
         lines += [
             "",
             f"Clean replay rate: **{replay['numerator']}/{replay['denominator']}** golden "
-            "certificates reproduced offline (`make replay`).",
+            "certificates reproduced on three consecutive offline replays (`make replay`).",
         ]
 
     stability = summary.get("repeat_stability")
