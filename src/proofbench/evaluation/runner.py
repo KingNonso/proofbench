@@ -19,7 +19,11 @@ from pathlib import Path
 
 from proofbench.domain.decision import ExternalState
 from proofbench.errors import EvidenceIncompleteError
-from proofbench.evaluation.baseline import review_by_agent, review_by_visible_tests
+from proofbench.evaluation.baseline import (
+    review_by_agent,
+    review_by_agent_with_self_review,
+    review_by_visible_tests,
+)
 from proofbench.evaluation.oracle import ClosedReview, read_oracle
 from proofbench.evaluation.records import (
     MARKED_READY_BASELINE,
@@ -37,6 +41,9 @@ ALL_CASES = [f"C{n:02d}" for n in range(1, 13)]
 ARM_FINAL = "migration_court"
 ARM_VISIBLE_TESTS = "baseline_visible_tests"
 ARM_DIRECT_REVIEW = "baseline_direct_review"
+# E1 (PRD-FR-073): the direct reviewer with its budget spent on re-examining
+# its own decision. A changelog experiment, never part of the paired protocol.
+ARM_SELF_REVIEW = "baseline_self_review"
 
 
 def run_arm(
@@ -226,8 +233,14 @@ def _run_baseline(
         candidate = (loaded.benchmark_root / loaded.case.candidate.migration_path).read_text(
             encoding="utf-8"
         )
-        decision = review_by_agent(loaded, provider=provider, candidate_sql=candidate)
-        model_calls = 1
+        if arm == ARM_SELF_REVIEW:
+            decision = review_by_agent_with_self_review(
+                loaded, provider=provider, candidate_sql=candidate
+            )
+            model_calls = 2
+        else:
+            decision = review_by_agent(loaded, provider=provider, candidate_sql=candidate)
+            model_calls = 1
 
     (run_dir / "decision.json").write_bytes(canonical_json(decision.model_dump(mode="json")))
     (run_dir / "run.json").write_bytes(

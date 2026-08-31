@@ -38,6 +38,7 @@ from proofbench.evaluation.runner import (  # noqa: E402
     ALL_CASES,
     ARM_DIRECT_REVIEW,
     ARM_FINAL,
+    ARM_SELF_REVIEW,
     ARM_VISIBLE_TESTS,
     run_arm,
 )
@@ -124,8 +125,7 @@ def replay_golden_bundles() -> tuple[int, int]:
     passed = 0
     for bundle in bundles:
         reports = [
-            replay_bundle(bundle, benchmark_root=BENCHMARK)
-            for _ in range(REPLAY_STABILITY_RUNS)
+            replay_bundle(bundle, benchmark_root=BENCHMARK) for _ in range(REPLAY_STABILITY_RUNS)
         ]
         ok = all(report.ok for report in reports)
         status = "reproduced 3x" if ok else "MISMATCH"
@@ -210,6 +210,7 @@ def freeze_experiment(
     role: str,
     provider_info: dict[str, object] | None,
     max_total_tokens: int,
+    out_dir: Path = RESULTS,
 ) -> dict[str, object]:
     """Record what is about to be run, before any of it runs.
 
@@ -249,16 +250,87 @@ def freeze_experiment(
         "policy_hash": hash_file(BENCHMARK / "policies" / "base-policy.yaml"),
     }
     record["experiment_hash"] = comparison.experiment_hash(record)
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "experiment.json").write_text(
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "experiment.json").write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return record
 
 
+def run_e1(
+    args: argparse.Namespace,
+    provider: ModelProvider,
+    provider_info: dict[str, object] | None,
+) -> int:
+    """E1, the equal-budget self-review changelog experiment (PRD-FR-073).
+
+    One arm, twelve cases, one pass, the same condition ceiling as the paired
+    protocol. Its evidence lives in its own directory so it can never be
+    mistaken for — or pooled with — the paired comparison.
+    """
+    e1_dir = RESULTS / "e1-self-review"
+    model = getattr(provider, "model", "unknown")
+    protocol = "E1 changelog experiment: 12 cases x 1 arm (baseline_self_review) x 1 repeat"
+    note = (
+        "E1 equal-budget self-review: the PRD-FR-002 direct reviewer, given its "
+        "condition budget back to re-examine its own decision with no new evidence "
+        f"and no worlds. Provider: {provider.name} ({model}). A changelog "
+        "experiment — never part of the paired protocol, never pooled with it."
+    )
+
+    assert_manifest_frozen()
+    experiment = freeze_experiment(
+        protocol,
+        [ARM_SELF_REVIEW],
+        note,
+        role="changelog-e1",
+        provider_info=provider_info,
+        max_total_tokens=args.max_total_tokens,
+        out_dir=e1_dir,
+    )
+
+    print(f"--- {ARM_SELF_REVIEW} ---", flush=True)
+    records = run_arm(
+        ARM_SELF_REVIEW,
+        benchmark_root=BENCHMARK,
+        runs_root=args.runs_root / "e1",
+        case_ids=ALL_CASES,
+        repeat=1,
+        provider=provider,
+        max_total_tokens=args.max_total_tokens,
+    )
+    for record in records:
+        flag = "ready" if record.marked_ready else record.outcome
+        print(f"  r1 {record.case_id} {record.case_class:<18} {flag}", flush=True)
+
+    comparison.write_raw_runs(records, e1_dir / "raw-runs.jsonl")
+    comparison.write_per_case(records, e1_dir / "per-case.csv")
+    summary = comparison.summarise(
+        records,
+        protocol=protocol,
+        note=note,
+        experiment_hash_value=str(experiment["experiment_hash"]),
+    )
+    comparison.write_summary(summary, e1_dir / "summary.json")
+
+    metric = summary["primary_metric"]["by_arm"][ARM_SELF_REVIEW]  # type: ignore[index]
+    print(
+        f"\nE1 unsafe escape: {metric['numerator']}/{metric['denominator']}"
+        f"\nexperiment hash: {experiment['experiment_hash']}"
+        f"\nwrote {e1_dir.relative_to(REPO_ROOT)}/"
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-agent-baseline", action="store_true")
+    parser.add_argument(
+        "--e1",
+        action="store_true",
+        help="run the E1 equal-budget self-review changelog experiment instead "
+        "of the paired protocol (12 cases once, one arm, same ceiling)",
+    )
     parser.add_argument(
         "--provider",
         choices=provider_kinds(),
@@ -280,13 +352,16 @@ def main() -> int:
     parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "runs" / "experiment")
     args = parser.parse_args()
 
+    if args.e1 and args.with_agent_baseline:
+        parser.error("--e1 is a separate changelog experiment; run it on its own")
+
     arms = [ARM_VISIBLE_TESTS, ARM_FINAL]
     note = DETERMINISTIC_NOTE
     provider: ModelProvider | None = None
     provider_info: dict[str, object] | None = None
-    if args.with_agent_baseline:
+    if args.with_agent_baseline or args.e1:
         if not args.provider:
-            parser.error("--with-agent-baseline requires --provider")
+            parser.error("a live experiment requires --provider")
         _, dirty = git_state()
         if dirty and not args.allow_dirty:
             print(
@@ -298,9 +373,14 @@ def main() -> int:
             return 2
         provider = create_provider(args.provider, model=args.model)
         provider_info = provider_record(provider, args.provider)
+        print(f"provider preflight: {provider_info.get('version', 'n/a')}", flush=True)
+
+    if args.e1 and provider is not None:
+        return run_e1(args, provider, provider_info)
+
+    if args.with_agent_baseline and provider is not None:
         arms.insert(1, ARM_DIRECT_REVIEW)
         note = agent_note(provider, args.role)
-        print(f"provider preflight: {provider_info.get('version', 'n/a')}", flush=True)
 
     assert_manifest_frozen()
 

@@ -175,3 +175,33 @@ def test_account_without_a_ledger_leaves_the_record_alone():
     record = base_record()
 
     assert _account(record, None, None, None) is record
+
+
+def test_self_review_returns_the_second_pass_and_shows_it_the_first(benchmark_root):
+    import json
+
+    from proofbench.evaluation.baseline import review_by_agent_with_self_review
+    from proofbench.intake.loader import load_case
+
+    loaded = load_case(benchmark_root / "cases" / "C01" / "case.yaml")
+    first = json.dumps({"schema_version": "1.0", "decision": "approve", "rationale": "tests pass"})
+    second = json.dumps(
+        {
+            "schema_version": "1.0",
+            "decision": "reject",
+            "rationale": "the backfill rewrites amounts",
+        }
+    )
+    provider = FakeProvider({"direct_reviewer": [first, second]})
+
+    decision = review_by_agent_with_self_review(
+        loaded, provider=provider, candidate_sql="ALTER TABLE payments ..."
+    )
+
+    # The final decision is the second pass's, whatever it says.
+    assert decision.decision == "reject"
+    assert len(provider.calls) == 2
+    second_prompt = provider.calls[1].messages[-1].content
+    assert "Your previous decision" in second_prompt
+    assert "tests pass" in second_prompt  # the first pass is shown, not summarised
+    assert provider.calls[1].prompt_version == "v1-self-review"

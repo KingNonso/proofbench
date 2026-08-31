@@ -84,17 +84,23 @@ def review_by_visible_tests(loaded: LoadedCase) -> BaselineDecision:
     )
 
 
-def review_by_agent(
-    loaded: LoadedCase, *, provider: ModelProvider, candidate_sql: str
-) -> BaselineDecision:
-    """One general-purpose agent reviewing the same material (PRD-FR-002)."""
+SELF_REVIEW_INSTRUCTION = (
+    "You previously reviewed this candidate and produced the decision below. "
+    "Re-examine your own review against the same material: name the strongest "
+    "reason your decision might be wrong, check that reason against the schema, "
+    "policy, and tests above, and then output your final decision in the same "
+    "JSON schema. Change your decision only if your re-examination finds a "
+    "concrete reason to."
+)
+
+
+def _reviewer_prompt(loaded: LoadedCase, candidate_sql: str) -> str:
     policy = (loaded.benchmark_root / loaded.case.policy_path).read_text(encoding="utf-8")
     tests = "\n\n".join(
         f"-- {path}\n{(loaded.benchmark_root / path).read_text(encoding='utf-8')}"
         for path in loaded.case.visible_tests
     )
-
-    prompt = (
+    return (
         f"# {loaded.case.case_id}: {loaded.case.title}\n\n{loaded.case.description}\n\n"
         f"## Candidate migration\n\n```sql\n{candidate_sql}\n```\n\n"
         f"## Schema\n\n{SCHEMA_SUMMARY}\n\n"
@@ -104,11 +110,46 @@ def review_by_agent(
         "Decide whether to approve, reject, or ask for clarification."
     )
 
+
+def review_by_agent(
+    loaded: LoadedCase, *, provider: ModelProvider, candidate_sql: str
+) -> BaselineDecision:
+    """One general-purpose agent reviewing the same material (PRD-FR-002)."""
     return invoke_agent(
         provider=provider,
         model_cls=BaselineDecision,
         agent=REVIEWER_AGENT,
         prompt_version=REVIEWER_PROMPT_VERSION,
+        system_prompt=REVIEWER_PROMPT.read_text(encoding="utf-8"),
+        user_prompt=_reviewer_prompt(loaded, candidate_sql),
+        max_output_tokens=2000,
+        seed=loaded.case.seed,
+    )
+
+
+def review_by_agent_with_self_review(
+    loaded: LoadedCase, *, provider: ModelProvider, candidate_sql: str
+) -> BaselineDecision:
+    """E1: the same reviewer, given its budget back to re-examine its own work.
+
+    The experiment-stage ladder (PRD-FR-073) asks whether the final workflow's
+    advantage is just budget. This arm answers it: the direct reviewer gets a
+    second pass over its own decision under the same condition ceiling, with no
+    new evidence and no worlds. The final decision is the second pass's,
+    whatever it says — selecting the "better" of the two would be the harness
+    reviewing, not the agent.
+    """
+    first = review_by_agent(loaded, provider=provider, candidate_sql=candidate_sql)
+    prompt = (
+        f"{_reviewer_prompt(loaded, candidate_sql)}\n\n"
+        f"## Your previous decision\n\n```json\n{first.model_dump_json(indent=2)}\n```\n\n"
+        f"{SELF_REVIEW_INSTRUCTION}"
+    )
+    return invoke_agent(
+        provider=provider,
+        model_cls=BaselineDecision,
+        agent=REVIEWER_AGENT,
+        prompt_version=f"{REVIEWER_PROMPT_VERSION}-self-review",
         system_prompt=REVIEWER_PROMPT.read_text(encoding="utf-8"),
         user_prompt=prompt,
         max_output_tokens=2000,
