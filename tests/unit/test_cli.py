@@ -78,6 +78,45 @@ def test_unknown_command_is_a_usage_error(repo_root):
     assert run("nonsense", cwd=repo_root).returncode == ExitCode.USAGE
 
 
+def test_replay_of_a_missing_certificate_is_a_usage_error_not_a_traceback(repo_root, tmp_path):
+    # The replay hint inside a certificate is relative to its bundle directory;
+    # a judge running it from the repo root must get a located refusal, not a
+    # pathlib stack trace.
+    result = run("replay", str(tmp_path / "certificate.json"), cwd=repo_root)
+
+    assert result.returncode == ExitCode.USAGE
+    assert "does not exist" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_trace_validate_of_a_missing_file_is_a_usage_error(repo_root, tmp_path):
+    result = run("trace", "validate", str(tmp_path / "trajectory.jsonl"), cwd=repo_root)
+
+    assert result.returncode == ExitCode.USAGE
+    assert "Traceback" not in result.stderr
+
+
+def test_certificate_verify_of_a_missing_file_is_a_usage_error(repo_root, tmp_path):
+    result = run("certificate", "verify", str(tmp_path / "certificate.json"), cwd=repo_root)
+
+    assert result.returncode == ExitCode.USAGE
+    assert "Traceback" not in result.stderr
+
+
+def test_certificate_without_its_manifest_is_an_integrity_error(repo_root, tmp_path):
+    import shutil
+
+    bundle = tmp_path / "C01"
+    shutil.copytree(repo_root / "tests" / "golden" / "C01", bundle)
+    (bundle / "manifest.json").unlink()
+
+    result = run("certificate", "verify", str(bundle / "certificate.json"), cwd=repo_root)
+
+    assert result.returncode == ExitCode.INTEGRITY
+    assert "no manifest.json" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_version_flag_needs_no_subcommand(repo_root):
     result = run("--version", cwd=repo_root)
     assert result.returncode == ExitCode.OK

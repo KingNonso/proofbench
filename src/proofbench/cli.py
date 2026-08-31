@@ -16,9 +16,8 @@ from typing import Annotated
 import typer
 
 from proofbench import __version__
+from proofbench.certificate.replay import load_manifest, verify_bundle
 from proofbench.certificate.replay import replay as replay_bundle
-from proofbench.certificate.replay import verify_bundle
-from proofbench.domain.certificate import RunManifest
 from proofbench.domain.decision import ExternalState
 from proofbench.errors import ExitCode, ProofBenchError
 from proofbench.intake.loader import load_case
@@ -155,7 +154,9 @@ def review(
         )
     typer.echo(f"  next action         {cert.first_screen.required_action}")
     typer.echo(f"  bundle              {run_dir}")
-    typer.echo(f"  replay              {cert.first_screen.replay_command}")
+    # The certificate's own replay_command is portable from inside the bundle;
+    # this hint must work from where the user is actually standing.
+    typer.echo(f"  replay              uv run proofbench replay {run_dir / 'certificate.json'}")
 
     if state == ExternalState.DOMAIN_RULING_REQUIRED.value:
         typer.echo(f"  ruling packet       {run_dir}/ruling-packet.md")
@@ -170,7 +171,10 @@ def review(
 @app.command("replay")
 def replay(
     certificate_path: Annotated[
-        Path, typer.Argument(help="Path to a certificate.json.", show_default=False)
+        Path,
+        typer.Argument(
+            exists=True, dir_okay=False, help="Path to a certificate.json.", show_default=False
+        ),
     ],
     benchmark_root: Annotated[
         Path | None,
@@ -202,7 +206,10 @@ def replay(
 @trace_app.command("validate")
 def trace_validate(
     trace_path: Annotated[
-        Path, typer.Argument(help="Path to a trajectory.jsonl.", show_default=False)
+        Path,
+        typer.Argument(
+            exists=True, dir_okay=False, help="Path to a trajectory.jsonl.", show_default=False
+        ),
     ],
 ) -> None:
     """Verify a trajectory's hash chain, ordering, and terminal event."""
@@ -220,7 +227,10 @@ def trace_validate(
 @certificate_app.command("verify")
 def certificate_verify(
     certificate_path: Annotated[
-        Path, typer.Argument(help="Path to a certificate.json.", show_default=False)
+        Path,
+        typer.Argument(
+            exists=True, dir_okay=False, help="Path to a certificate.json.", show_default=False
+        ),
     ],
 ) -> None:
     """Check a certificate against its bundle without running anything.
@@ -230,9 +240,7 @@ def certificate_verify(
     """
     cert = load_certificate(certificate_path)
     bundle = certificate_path.resolve().parent
-    manifest = RunManifest.model_validate_json(
-        (bundle / "manifest.json").read_text(encoding="utf-8")
-    )
+    manifest = load_manifest(bundle)
     steps = verify_bundle(bundle, manifest)
 
     typer.echo(f"{cert.case_id}  {cert.first_screen.external_state}  run {cert.run_id}")

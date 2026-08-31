@@ -1,10 +1,11 @@
 {
   "arms": [
     "baseline_visible_tests",
+    "baseline_direct_review",
     "migration_court"
   ],
   "budget": {
-    "max_total_tokens_per_case_run": 150000,
+    "max_total_tokens_per_case_run": 250000,
     "policy": "identical ceiling for every arm; over-budget runs are invalidated"
   },
   "case_hashes": {
@@ -35,13 +36,13 @@
     "C11",
     "C12"
   ],
-  "commit": "84dc36bcd76079dbbacf41192af0cb19aa502b1f",
-  "experiment_hash": "17c348d95b0af3cbeae8d0ecef8c3a8aa3ba43116fbf7d6286c761dad697276b",
+  "commit": "22b0a3da4523aa223770ef67e571dc2f95558a44",
+  "experiment_hash": "86820c1acbdaabc8be1994210c21aba272ceb63f7bfcb5fd8e7633f858fdb8c8",
   "host": {
     "platform": "macOS-14.1-x86_64-i386-64bit",
     "python": "3.12.12"
   },
-  "note": "Both arms here are deterministic and make no network call. The baseline is `visible-tests`: run the checks that already exist in CI and merge if they pass, which is the process this product is meant to improve on. The direct-review agent baseline specified by PRD-FR-002 is implemented but is NOT included in this run: it needs a live provider (an authenticated subscription CLI or an API profile), and authoring its answers would make the comparison meaningless. Until it runs, no claim may be made about how ProofBench compares to a reviewing agent.",
+  "note": "Three arms: the visible-tests baseline, the direct-review agent baseline (PRD-FR-002, same candidate, schema, roles, policy, tests, model family and budget as the final workflow), and Migration Court. Both live arms are served by the same provider: claude_cli (claude-opus-5). This is the primary experiment; metrics from different providers are never pooled.",
   "policy_hash": "ff9be070bfad2117c781dae04e0afd75378c350aa180725d689762d5e57a79bf",
   "postgres_image": "postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
   "prompt_hashes": {
@@ -50,8 +51,38 @@
     "remediation_engineer_v1": "d2775c0570fdcd2a7d68ccf48ffaebc6199974b4b9af0a9158227ba7734da778",
     "test_designer_v1": "35104b511054ad3ca589a16f7eefd1162defc907291a6f5245ce2e9433d4044f"
   },
-  "protocol": "PRD-FR-070 fallback: 12 cases x 2 arms x 1 repeat, plus C01, C04, C08, C12 x3",
-  "provider": null,
+  "protocol": "PRD-FR-070 fallback: 12 cases x 3 arms x 1 repeat, plus C01, C04, C08, C12 x3",
+  "provider": {
+    "argv_template": [
+      "claude",
+      "-p",
+      "--output-format",
+      "json",
+      "--restricted",
+      "--safe-mode",
+      "--tools",
+      "",
+      "--strict-mcp-config",
+      "--max-turns",
+      "1",
+      "--no-session-persistence",
+      "--model",
+      "claude-opus-5",
+      "--effort",
+      "high",
+      "--system-prompt",
+      "<system-prompt>"
+    ],
+    "auth_mode": "subscription_cli",
+    "cost_basis": "cli-reported-estimate",
+    "executable": "claude",
+    "kind": "claude_cli",
+    "mode": "live",
+    "name": "claude_cli",
+    "requested_model": "claude-opus-5",
+    "sampling_seed": "unsupported-by-provider-interface",
+    "version": "2.1.251 (Claude Code)"
+  },
   "role": "primary",
   "schema_version": "1.1",
   "seeds": {
@@ -68,6 +99,6 @@
     "C11": 20260828,
     "C12": 20260828
   },
-  "started_at": "2026-08-31T08:58:42.520712+00:00",
+  "started_at": "2026-08-31T15:08:32.339587+00:00",
   "working_tree_dirty": false
 }

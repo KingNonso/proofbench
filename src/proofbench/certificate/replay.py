@@ -26,7 +26,7 @@ from proofbench.domain.base import StrictModel
 from proofbench.domain.certificate import MigrationChangeCertificate, RunManifest
 from proofbench.domain.contract import MigrationContract
 from proofbench.domain.ruling import Ruling
-from proofbench.errors import CaseValidationError, EvidenceIncompleteError
+from proofbench.errors import CaseValidationError, EvidenceIncompleteError, InputIntegrityError
 from proofbench.intake.loader import load_case
 from proofbench.sandbox.postgres import PostgresSandbox
 from proofbench.tracing.hashes import canonical_json, hash_file, sha256_hex
@@ -78,6 +78,21 @@ class ReplayReport(StrictModel):
         return "\n".join(lines) + "\n"
 
 
+def load_manifest(bundle: Path) -> RunManifest:
+    """The bundle's manifest, or a typed refusal.
+
+    A certificate without its manifest is not a bundle that can verify; a raw
+    traceback here would bury that fact under a stack of pathlib frames.
+    """
+    manifest_path = bundle / "manifest.json"
+    if not manifest_path.is_file():
+        raise InputIntegrityError(
+            "the bundle has no manifest.json beside the certificate",
+            location=str(bundle),
+        )
+    return RunManifest.model_validate(json.loads(manifest_path.read_text(encoding="utf-8")))
+
+
 def replay(certificate_path: Path, *, benchmark_root: Path) -> ReplayReport:
     """Verify a bundle, re-run its worlds, and compare the outcome."""
     certificate_path = certificate_path.resolve()
@@ -87,9 +102,7 @@ def replay(certificate_path: Path, *, benchmark_root: Path) -> ReplayReport:
     cert = MigrationChangeCertificate.model_validate(
         json.loads(certificate_path.read_text(encoding="utf-8"))
     )
-    manifest = RunManifest.model_validate(
-        json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
-    )
+    manifest = load_manifest(bundle)
 
     steps.extend(verify_bundle(bundle, manifest))
     steps.extend(_verify_inputs(benchmark_root, manifest))
