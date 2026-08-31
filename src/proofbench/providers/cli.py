@@ -170,6 +170,14 @@ class CodexCliProvider:
     def preflight(self) -> dict[str, str]:
         return {"executable": self.executable, "version": executable_version(self.executable)}
 
+    def argv_template(self) -> list[str]:
+        """The exact invocation, with the per-call working directory templated.
+
+        Secret-free by construction: nothing in the argv is caller-supplied and
+        credentials never appear on the command line.
+        """
+        return self._argv("<workdir>")
+
     def _argv(self, workdir: str) -> list[str]:
         return [
             self.executable,
@@ -295,6 +303,10 @@ class ClaudeCliProvider:
 
     def preflight(self) -> dict[str, str]:
         return {"executable": self.executable, "version": executable_version(self.executable)}
+
+    def argv_template(self) -> list[str]:
+        """The exact invocation, with the per-call system prompt templated."""
+        return self._argv("<system-prompt>")
 
     def _argv(self, system: str) -> list[str]:
         argv = [

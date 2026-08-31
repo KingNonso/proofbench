@@ -22,6 +22,7 @@ class FakeProvider:
 
     name = "fake"
     mode = "fake"
+    cost_basis = "zero-by-design"
 
     def __init__(self, responses: dict[str, list[str]]) -> None:
         # agent name -> ordered responses. A list so a schema repair can be

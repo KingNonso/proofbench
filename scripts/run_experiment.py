@@ -3,11 +3,15 @@
 Evidence-production, not part of the clean judge path. `make evaluate` recomputes
 the metrics from what this wrote; it does not re-run anything.
 
-    uv run python scripts/run_experiment.py                 # deterministic arms
-    uv run python scripts/run_experiment.py --with-agent-baseline   # needs a key
+    uv run python scripts/run_experiment.py                       # deterministic arms
+    uv run python scripts/run_experiment.py \
+        --with-agent-baseline --provider claude_cli               # live, needs a login
 
 The experiment record is written *before* the first run, so the protocol cannot
-be chosen after seeing the results.
+be chosen after seeing the results, and it carries the provider, resolved CLI
+version, budgets, seeds, prompt hashes, and image pin so the record says what
+actually ran. A live experiment refuses to start from a dirty working tree:
+"which code produced this" must have one answer.
 """
 
 from __future__ import annotations
@@ -23,8 +27,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from proofbench.agents.contract_analyst import PROMPT_PATH as CONTRACT_PROMPT  # noqa: E402
+from proofbench.agents.remediation_engineer import PROMPT_PATH as REMEDIATION_PROMPT  # noqa: E402
+from proofbench.agents.test_designer import PROMPT_PATH as TEST_DESIGNER_PROMPT  # noqa: E402
 from proofbench.certificate.replay import replay as replay_bundle  # noqa: E402
+from proofbench.config import POSTGRES_IMAGE  # noqa: E402
 from proofbench.evaluation import comparison  # noqa: E402
+from proofbench.evaluation.baseline import REVIEWER_PROMPT  # noqa: E402
 from proofbench.evaluation.runner import (  # noqa: E402
     ALL_CASES,
     ARM_DIRECT_REVIEW,
@@ -32,6 +41,8 @@ from proofbench.evaluation.runner import (  # noqa: E402
     ARM_VISIBLE_TESTS,
     run_arm,
 )
+from proofbench.providers.base import ModelProvider  # noqa: E402
+from proofbench.providers.registry import create_provider, provider_kinds  # noqa: E402
 from proofbench.tracing.hashes import hash_file  # noqa: E402
 
 BENCHMARK = REPO_ROOT / "benchmark" / "aidledger"
@@ -42,20 +53,32 @@ GOLDEN = REPO_ROOT / "tests" / "golden"
 REPEAT_CASES = ["C01", "C04", "C08", "C12"]
 REPEATS = 3
 
+# The condition-level model-token ceiling, identical for every arm of one
+# experiment (PRD-FR-002 "same budget"): the final arm spends it across its
+# agents, the direct reviewer gets all of it. Enforced per case-run by the
+# budget ledger, which invalidates a run that crosses it.
+DEFAULT_MAX_TOTAL_TOKENS = 150_000
+
 DETERMINISTIC_NOTE = (
     "Both arms here are deterministic and make no network call. The baseline is "
     "`visible-tests`: run the checks that already exist in CI and merge if they pass, "
     "which is the process this product is meant to improve on. The direct-review agent "
     "baseline specified by PRD-FR-002 is implemented but is NOT included in this run: "
-    "it needs a provider key, and authoring its answers would make the comparison "
-    "meaningless. Until it runs, no claim may be made about how ProofBench compares to "
-    "a reviewing agent."
+    "it needs a live provider (an authenticated subscription CLI or an API profile), "
+    "and authoring its answers would make the comparison meaningless. Until it runs, "
+    "no claim may be made about how ProofBench compares to a reviewing agent."
 )
-AGENT_NOTE = (
-    "Three arms: the visible-tests baseline, the direct-review agent baseline "
-    "(PRD-FR-002, same candidate, schema, roles, policy, tests, model family and "
-    "budget as the final workflow), and Migration Court."
-)
+
+
+def agent_note(provider: ModelProvider, role: str) -> str:
+    model = getattr(provider, "model", "unknown")
+    return (
+        "Three arms: the visible-tests baseline, the direct-review agent baseline "
+        "(PRD-FR-002, same candidate, schema, roles, policy, tests, model family and "
+        "budget as the final workflow), and Migration Court. Both live arms are served "
+        f"by the same provider: {provider.name} ({model}). This is the {role} "
+        "experiment; metrics from different providers are never pooled."
+    )
 
 
 def assert_manifest_frozen() -> None:
@@ -103,8 +126,8 @@ def replay_golden_bundles() -> tuple[int, int]:
     return passed, len(bundles)
 
 
-def freeze_experiment(protocol: str, arms: list[str], note: str) -> dict[str, object]:
-    """Record what is about to be run, before any of it runs."""
+def git_state() -> tuple[str, bool]:
+    """The commit that produced this evidence, and whether the tree drifted."""
     try:
         commit = subprocess.run(  # noqa: S603
             ["git", "rev-parse", "HEAD"],  # noqa: S607
@@ -125,23 +148,98 @@ def freeze_experiment(protocol: str, arms: list[str], note: str) -> dict[str, ob
             ).stdout.strip()
         )
     except (OSError, subprocess.SubprocessError):
-        commit, dirty = "unknown", True
+        return "unknown", True
+    return commit, dirty
 
-    record = {
-        "schema_version": "1.0",
+
+def case_seeds() -> dict[str, int]:
+    """The per-case replay seeds, read from the frozen case files.
+
+    These seed the deterministic harness. No live provider interface accepts a
+    sampling seed, and the record says so explicitly rather than implying that
+    the seed reached the model.
+    """
+    import yaml
+
+    return {
+        case_id: int(
+            yaml.safe_load(
+                (BENCHMARK / "cases" / case_id / "case.yaml").read_text(encoding="utf-8")
+            )["seed"]
+        )
+        for case_id in ALL_CASES
+    }
+
+
+def provider_record(provider: ModelProvider, kind: str) -> dict[str, object]:
+    """Everything the manifest must say about who served the model calls."""
+    record: dict[str, object] = {
+        "kind": kind,
+        "name": provider.name,
+        "mode": provider.mode,
+        "requested_model": getattr(provider, "model", ""),
+        "auth_mode": "subscription_cli" if kind.endswith("_cli") else "api_key_or_profile",
+        "cost_basis": getattr(provider, "cost_basis", "unavailable"),
+        "sampling_seed": "unsupported-by-provider-interface",
+    }
+    preflight = getattr(provider, "preflight", None)
+    if callable(preflight):
+        # Fails loudly (EVIDENCE_INCOMPLETE) if the executable is missing,
+        # before a single case runs.
+        record.update(preflight())
+    argv_template = getattr(provider, "argv_template", None)
+    if callable(argv_template):
+        record["argv_template"] = argv_template()
+    return record
+
+
+def freeze_experiment(
+    protocol: str,
+    arms: list[str],
+    note: str,
+    *,
+    role: str,
+    provider_info: dict[str, object] | None,
+    max_total_tokens: int,
+) -> dict[str, object]:
+    """Record what is about to be run, before any of it runs.
+
+    The record carries its own hash (computed over everything else in it), and
+    ``summary.json`` must quote that hash before any metric may be spoken
+    (PRD §16).
+    """
+    commit, dirty = git_state()
+
+    record: dict[str, object] = {
+        "schema_version": "1.1",
         "started_at": datetime.now(UTC).isoformat(),
         "protocol": protocol,
+        "role": role,
         "arms": arms,
         "cases": ALL_CASES,
         "note": note,
         "commit": commit,
         "working_tree_dirty": dirty,
         "host": {"platform": platform.platform(), "python": platform.python_version()},
+        "provider": provider_info,
+        "budget": {
+            "max_total_tokens_per_case_run": max_total_tokens,
+            "policy": "identical ceiling for every arm; over-budget runs are invalidated",
+        },
+        "seeds": case_seeds(),
+        "postgres_image": POSTGRES_IMAGE,
+        "prompt_hashes": {
+            "contract_analyst_v1": hash_file(CONTRACT_PROMPT),
+            "test_designer_v1": hash_file(TEST_DESIGNER_PROMPT),
+            "remediation_engineer_v1": hash_file(REMEDIATION_PROMPT),
+            "direct_reviewer_v1": hash_file(REVIEWER_PROMPT),
+        },
         "case_hashes": {
             case_id: hash_file(BENCHMARK / "cases" / case_id / "case.yaml") for case_id in ALL_CASES
         },
         "policy_hash": hash_file(BENCHMARK / "policies" / "base-policy.yaml"),
     }
+    record["experiment_hash"] = comparison.experiment_hash(record)
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "experiment.json").write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -152,18 +250,48 @@ def freeze_experiment(protocol: str, arms: list[str], note: str) -> dict[str, ob
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-agent-baseline", action="store_true")
+    parser.add_argument(
+        "--provider",
+        choices=provider_kinds(),
+        help="live provider for BOTH live arms; required with --with-agent-baseline",
+    )
+    parser.add_argument("--model", help="override the provider's default model")
+    parser.add_argument(
+        "--role",
+        choices=("primary", "replication"),
+        default="primary",
+        help="primary closes the release gates; a replication is labelled as such",
+    )
+    parser.add_argument("--max-total-tokens", type=int, default=DEFAULT_MAX_TOTAL_TOKENS)
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="let a live experiment run from a dirty tree (recorded either way)",
+    )
     parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "runs" / "experiment")
     args = parser.parse_args()
 
     arms = [ARM_VISIBLE_TESTS, ARM_FINAL]
     note = DETERMINISTIC_NOTE
-    provider = None
+    provider: ModelProvider | None = None
+    provider_info: dict[str, object] | None = None
     if args.with_agent_baseline:
-        from proofbench.providers.live import LiveProvider  # noqa: PLC0415
-
-        provider = LiveProvider()
+        if not args.provider:
+            parser.error("--with-agent-baseline requires --provider")
+        _, dirty = git_state()
+        if dirty and not args.allow_dirty:
+            print(
+                "refusing to run a live experiment from a dirty working tree: "
+                "'which code produced this' must have one answer. Commit first, "
+                "or pass --allow-dirty to record the drift knowingly.",
+                file=sys.stderr,
+            )
+            return 2
+        provider = create_provider(args.provider, model=args.model)
+        provider_info = provider_record(provider, args.provider)
         arms.insert(1, ARM_DIRECT_REVIEW)
-        note = AGENT_NOTE
+        note = agent_note(provider, args.role)
+        print(f"provider preflight: {provider_info.get('version', 'n/a')}", flush=True)
 
     assert_manifest_frozen()
 
@@ -171,7 +299,14 @@ def main() -> int:
         f"PRD-FR-070 fallback: 12 cases x {len(arms)} arms x 1 repeat, "
         f"plus {', '.join(REPEAT_CASES)} x{REPEATS}"
     )
-    freeze_experiment(protocol, arms, note)
+    experiment = freeze_experiment(
+        protocol,
+        arms,
+        note,
+        role=args.role,
+        provider_info=provider_info,
+        max_total_tokens=args.max_total_tokens,
+    )
 
     records = []
     for arm in arms:
@@ -185,6 +320,7 @@ def main() -> int:
                 case_ids=cases,
                 repeat=repeat,
                 provider=provider,
+                max_total_tokens=args.max_total_tokens,
             )
             for record in arm_records:
                 flag = "ready" if record.marked_ready else record.outcome
@@ -196,7 +332,13 @@ def main() -> int:
 
     comparison.write_raw_runs(records, RESULTS / "raw-runs.jsonl")
     comparison.write_per_case(records, RESULTS / "per-case.csv")
-    summary = comparison.summarise(records, protocol=protocol, note=note, clean_replay=clean_replay)
+    summary = comparison.summarise(
+        records,
+        protocol=protocol,
+        note=note,
+        clean_replay=clean_replay,
+        experiment_hash_value=str(experiment["experiment_hash"]),
+    )
     comparison.write_summary(summary, RESULTS / "summary.json")
     comparison.write_comparison(records, summary, RESULTS / "comparison.md")
 
@@ -210,6 +352,7 @@ def main() -> int:
             f"repeat stability {arm}: "
             f"{'identical' if stability[arm]['all_identical'] else 'DISAGREED'}"
         )
+    print(f"experiment hash: {experiment['experiment_hash']}")
     print(f"\nwrote {RESULTS.relative_to(REPO_ROOT)}/")
     return 0
 

@@ -38,6 +38,17 @@ def main() -> int:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     problems = comparison.verify(records, summary)
 
+    # The hash in the summary must be the hash of the frozen experiment record,
+    # or the metric is being quoted against a protocol it did not come from.
+    experiment_path = RESULTS / "experiment.json"
+    if "experiment_hash" in summary and experiment_path.is_file():
+        recorded = json.loads(experiment_path.read_text(encoding="utf-8"))
+        expected = comparison.experiment_hash(recorded)
+        if summary["experiment_hash"] != expected:
+            problems.append(
+                "experiment_hash in summary.json does not match results/experiment.json"
+            )
+
     print(f"{len(records)} committed run records across {len({r.arm for r in records})} arm(s)")
     print(f"protocol: {summary['protocol']}\n")
     for arm, values in sorted(summary["primary_metric"]["by_arm"].items()):

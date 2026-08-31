@@ -12,8 +12,9 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from proofbench.errors import EvidenceIncompleteError
 from proofbench.evaluation.records import ArmMetrics, RunRecord, compute
-from proofbench.tracing.hashes import canonical_json
+from proofbench.tracing.hashes import canonical_json, sha256_hex
 
 RESULTS = Path("results")
 
@@ -64,6 +65,39 @@ def read_raw_runs(path: Path) -> list[RunRecord]:
     ]
 
 
+def experiment_hash(record: dict[str, object]) -> str:
+    """The hash PRD §16 requires before any metric may be spoken.
+
+    Computed over the frozen experiment record minus the hash field itself, so
+    the record can carry its own hash without circularity.
+    """
+    body = {key: value for key, value in record.items() if key != "experiment_hash"}
+    return sha256_hex(canonical_json(body))
+
+
+def providers_block(records: list[RunRecord]) -> dict[str, object]:
+    """Per-arm provider and resolved models — and the refusal to pool.
+
+    One summary describes one provider's experiment. Records that mix live
+    providers, or mix a live arm with a fixture-served arm, are not an
+    experiment with a headline number; they are the bug that reopened R4.
+    """
+    named = sorted({record.provider for record in records if record.provider})
+    if len(named) > 1:
+        raise EvidenceIncompleteError(
+            "records from more than one provider cannot be pooled into one summary",
+            detail={"providers": ", ".join(named)},
+        )
+    by_arm: dict[str, object] = {}
+    for arm in sorted({record.arm for record in records}):
+        arm_records = [record for record in records if record.arm == arm]
+        by_arm[arm] = {
+            "provider": next((r.provider for r in arm_records if r.provider), ""),
+            "models": sorted({r.model for r in arm_records if r.model}),
+        }
+    return by_arm
+
+
 def write_per_case(records: list[RunRecord], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = [
@@ -71,12 +105,18 @@ def write_per_case(records: list[RunRecord], path: Path) -> None:
         "case_class",
         "expected_state",
         "arm",
+        "provider",
+        "model",
         "repeat",
         "outcome",
         "marked_ready",
         "evidence_incomplete",
         "asked_for_authority",
         "duration_ms",
+        "model_calls",
+        "input_tokens",
+        "output_tokens",
+        "cost_usd_micros",
         "note",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -117,6 +157,7 @@ def summarise(
     protocol: str,
     note: str,
     clean_replay: tuple[int, int] | None = None,
+    experiment_hash_value: str | None = None,
 ) -> dict[str, object]:
     """Aggregate the experiment.
 
@@ -129,11 +170,12 @@ def summarise(
     arms = sorted({record.arm for record in records})
     metrics = {arm: compute(arm, [r for r in first_pass if r.arm == arm]) for arm in arms}
     summary: dict[str, object] = {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "generated_at": datetime.now(UTC).isoformat(),
         "protocol": protocol,
         "note": note,
         "records_total": len(records),
+        "providers": providers_block(records),
         "arms": {arm: metric.model_dump(mode="json") for arm, metric in metrics.items()},
         "primary_metric": {
             "name": "unsafe_migration_escape_rate",
@@ -150,6 +192,8 @@ def summarise(
         },
         "repeat_stability": repeat_stability(records),
     }
+    if experiment_hash_value is not None:
+        summary["experiment_hash"] = experiment_hash_value
     if clean_replay is not None:
         summary["clean_replay"] = {
             "numerator": clean_replay[0],
@@ -176,6 +220,26 @@ def write_comparison(records: list[RunRecord], summary: dict[str, object], path:
         f"Generated {summary['generated_at']}. Protocol: {summary['protocol']}.",
         "",
         str(summary["note"]),
+    ]
+
+    providers = summary.get("providers")
+    if isinstance(providers, dict):
+        lines += ["", "## Provider", ""]
+        for arm in arms:
+            info = providers.get(arm)
+            if not isinstance(info, dict):
+                continue
+            label = info.get("provider") or "none (deterministic, no model call)"
+            models = ", ".join(info.get("models", [])) or "—"
+            lines.append(f"- `{arm}`: {label} (resolved model: {models})")
+        lines += [
+            "",
+            "One summary describes one provider's experiment. Metrics from",
+            "different providers are never pooled; building a summary from",
+            "mixed-provider records is refused outright.",
+        ]
+
+    lines += [
         "",
         "## Primary metric and guardrails",
         "",
@@ -266,8 +330,11 @@ def write_comparison(records: list[RunRecord], summary: dict[str, object], path:
         )
     lines += [
         "",
-        "Cost is a list-price estimate from recorded token counts, not a billed",
-        "figure. Human time per task is not measured here and is discussed in the",
+        "Cost is an estimate, never a billed figure: the Claude CLI reports its own",
+        "list-price estimate, the API adapter computes one from recorded token",
+        "counts, and a provider with no price basis reports zero, which means",
+        "'not measured' — the experiment manifest records each provider's cost",
+        "basis. Human time per task is not measured here and is discussed in the",
         "changelog rather than reported as a number nobody timed.",
         "",
     ]
@@ -282,6 +349,14 @@ def verify(records: list[RunRecord], summary: dict[str, object]) -> list[str]:
 
     if "clean_replay" not in summary:
         problems.append("summary carries no clean replay rate (PRD-FR-072)")
+
+    if "experiment_hash" not in summary:
+        problems.append(
+            "summary carries no experiment hash; PRD §16 forbids speaking a metric without one"
+        )
+
+    if summary.get("providers") != recomputed["providers"]:
+        problems.append("providers block does not recompute from the raw runs")
 
     recomputed_stability = recomputed["repeat_stability"]
     recorded_stability = summary.get("repeat_stability")

@@ -39,6 +39,7 @@ class LiveProvider:
 
     name = "anthropic"
     mode = "live"
+    cost_basis = "list-price-estimate"
 
     def __init__(self, model: str = DEFAULT_MODEL, *, effort: str = "high") -> None:
         try:
