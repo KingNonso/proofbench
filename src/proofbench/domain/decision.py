@@ -56,9 +56,9 @@ class BlastRadiusItem(StrictModel):
     """One impact, and the executed evidence that supports it.
 
     A confirmed item must name its check ids. An item with no executed evidence
-    behind it belongs in ``possible``, which this slice keeps empty because it
-    comes from contract analysis that does not exist yet. The two lists are never
-    merged (PRD-FR-041).
+    behind it belongs in ``possible``: a contract-declared invariant that no
+    executed world settled, carrying empty ``check_ids`` because the absence of
+    execution is exactly its claim. The two lists are never merged (PRD-FR-041).
     """
 
     schema_version: Literal["1.0"] = DECISION_SCHEMA_VERSION

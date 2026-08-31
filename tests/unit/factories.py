@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+from proofbench.domain.contract import ContractInvariant, MigrationContract
 from proofbench.domain.evidence import (
     AccessObservation,
     CheckResult,
@@ -92,3 +93,24 @@ def failure(**overrides):
     payload = {"stage": "world:rls", "reason": "probe hit an unexpected SQLSTATE"}
     payload.update(overrides)
     return EvidenceFailure(**payload)
+
+
+def contract_invariant(**overrides):
+    payload = {
+        "id": "INV-RLS-001",
+        "description": "tenant isolation holds",
+        "blocking_class": "blocking",
+        "executable_check": "world:rls",
+    }
+    payload.update(overrides)
+    return ContractInvariant(**payload)
+
+
+def contract(**overrides):
+    payload = {
+        "case_id": "C01",
+        "summary": "adds a column",
+        "invariants": [contract_invariant()],
+    }
+    payload.update(overrides)
+    return MigrationContract(**payload)

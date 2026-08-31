@@ -271,7 +271,10 @@ def review_case(
     # passes is evidence for its author, not grounds to re-grade the original --
     # and folding it in would let every unsafe candidate reach READY_FOR_REVIEW.
     decision = decide(
-        world_results, authority_questions=authority_questions, evidence_failures=failures
+        world_results,
+        authority_questions=authority_questions,
+        evidence_failures=failures,
+        contract=contract,
     )
     writer.emit(
         EventType.DECISION_RECORDED,

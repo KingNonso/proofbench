@@ -66,11 +66,76 @@ def test_non_blocking_finding_does_not_block():
     assert decide([result]).external_state is ExternalState.READY_FOR_REVIEW
 
 
-def test_possible_impact_is_never_populated_from_executed_evidence():
+def test_possible_is_empty_without_a_contract():
     # confirmed and possible must never merge (PRD-FR-041). possible comes from
-    # contract analysis, which does not exist yet, so it is honestly empty.
+    # contract analysis; with no contract there is no hypothesis to record.
     decision = decide([factories.blocked_world()])
     assert decision.possible == []
+
+
+def test_an_unsettled_material_invariant_becomes_a_possible_entry():
+    contract = factories.contract(
+        invariants=[
+            factories.contract_invariant(),  # settled by the rls world below
+            factories.contract_invariant(
+                id="INV-AUD-002",
+                description="audit history stays append-only",
+                blocking_class="material",
+                executable_check="world:audit",
+            ),
+        ]
+    )
+
+    decision = decide([factories.world_result()], contract=contract)
+
+    assert [item.invariant_id for item in decision.possible] == ["INV-AUD-002"]
+    entry = decision.possible[0]
+    assert entry.check_ids == []  # nothing executed: that absence is the claim
+    assert entry.rows_affected == 0
+    assert "settled by no executed check" in entry.summary
+
+
+def test_a_settled_invariant_never_appears_in_possible():
+    decision = decide([factories.world_result()], contract=factories.contract())
+
+    assert decision.possible == []
+
+
+def test_a_minor_invariant_stays_out_of_possible():
+    contract = factories.contract(
+        invariants=[
+            factories.contract_invariant(
+                id="INV-DOC-003", blocking_class="minor", executable_check="world:none"
+            )
+        ]
+    )
+
+    decision = decide([factories.world_result()], contract=contract)
+
+    assert decision.possible == []
+
+
+def test_possible_never_changes_the_external_state():
+    # The contract is typed agent output. It may contribute hypotheses and
+    # nothing else; a contract full of unsettled blocking invariants must not
+    # move a clean run off READY_FOR_REVIEW (PRD-FR-040).
+    contract = factories.contract(
+        invariants=[factories.contract_invariant(id="INV-PAY-009", executable_check="world:money")]
+    )
+
+    decision = decide([factories.world_result()], contract=contract)
+
+    assert decision.external_state is ExternalState.READY_FOR_REVIEW
+    assert decision.possible  # recorded as a hypothesis, not as a verdict
+
+
+def test_deferred_worlds_record_their_unexecuted_invariants_as_possible():
+    contract = factories.contract()
+
+    decision = decide([], authority_questions=["were these payments USD?"], contract=contract)
+
+    assert decision.external_state is ExternalState.DOMAIN_RULING_REQUIRED
+    assert [item.invariant_id for item in decision.possible] == ["INV-RLS-001"]
 
 
 def test_confirmed_requires_an_observation_that_actually_saw_something():

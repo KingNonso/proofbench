@@ -20,7 +20,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from proofbench.decision.blast_radius import confirmed_from
+from proofbench.decision.blast_radius import confirmed_from, possible_from
+from proofbench.domain.contract import MigrationContract
 from proofbench.domain.decision import BlastRadiusItem, DecisionRecord, ExternalState
 from proofbench.domain.evidence import EvidenceFailure, WorldResult, WorldStatus
 
@@ -47,10 +48,19 @@ def decide(
     world_results: Sequence[WorldResult],
     authority_questions: Sequence[str] = (),
     evidence_failures: Sequence[EvidenceFailure] = (),
+    *,
+    contract: MigrationContract | None = None,
 ) -> DecisionRecord:
-    """Map typed evidence to exactly one external state."""
+    """Map typed evidence to exactly one external state.
+
+    The contract contributes hypotheses to ``possible`` and nothing else: it is
+    typed agent output, and letting it move the external state would make the
+    deterministic policy advisory (PRD-FR-040). Every branch below chooses its
+    state before ``possible`` is even attached.
+    """
     reasons: list[str] = []
     decisive: list[str] = []
+    possible = possible_from(contract, list(world_results))
 
     incomplete = [result for result in world_results if result.status in _INCOMPLETE_STATUSES]
     world_failures = [failure for result in world_results for failure in result.failures]
@@ -66,7 +76,12 @@ def decide(
             reasons.append(f"{failure.stage}: {failure.reason}")
             reasons.extend(failure.causes)
         return _record(
-            ExternalState.EVIDENCE_INCOMPLETE, reasons, decisive, [], evidence_complete=False
+            ExternalState.EVIDENCE_INCOMPLETE,
+            reasons,
+            decisive,
+            [],
+            possible=possible,
+            evidence_complete=False,
         )
 
     blocking = [
@@ -86,6 +101,7 @@ def decide(
             reasons,
             decisive,
             confirmed_from(list(world_results)),
+            possible=possible,
             evidence_complete=True,
         )
 
@@ -97,19 +113,36 @@ def decide(
             f"unresolved authority question: {question}" for question in authority_questions
         )
         return _record(
-            ExternalState.DOMAIN_RULING_REQUIRED, reasons, decisive, [], evidence_complete=True
+            ExternalState.DOMAIN_RULING_REQUIRED,
+            reasons,
+            decisive,
+            [],
+            possible=possible,
+            evidence_complete=True,
         )
 
     if not world_results:
         # Nothing ran and nobody asked for a ruling, so nothing is known.
         reasons.append("no world produced a result")
         return _record(
-            ExternalState.EVIDENCE_INCOMPLETE, reasons, decisive, [], evidence_complete=False
+            ExternalState.EVIDENCE_INCOMPLETE,
+            reasons,
+            decisive,
+            [],
+            possible=possible,
+            evidence_complete=False,
         )
 
     reasons.extend(f"world {result.world} passed" for result in world_results)
     decisive.extend(check.check_id for result in world_results for check in result.checks)
-    return _record(ExternalState.READY_FOR_REVIEW, reasons, decisive, [], evidence_complete=True)
+    return _record(
+        ExternalState.READY_FOR_REVIEW,
+        reasons,
+        decisive,
+        [],
+        possible=possible,
+        evidence_complete=True,
+    )
 
 
 def _record(
@@ -118,6 +151,7 @@ def _record(
     decisive: list[str],
     confirmed: list[BlastRadiusItem],
     *,
+    possible: list[BlastRadiusItem],
     evidence_complete: bool,
 ) -> DecisionRecord:
     return DecisionRecord(
@@ -126,7 +160,7 @@ def _record(
         reasons=reasons,
         decisive_check_ids=sorted(set(decisive)),
         confirmed=confirmed,
-        possible=[],
+        possible=possible,
         required_action=REQUIRED_ACTIONS[state],
         evidence_complete=evidence_complete,
     )
