@@ -19,7 +19,9 @@ from proofbench.domain.base import StrictModel
 from proofbench.domain.decision import ExternalState
 from proofbench.domain.oracle import CaseClass
 
-RESULT_SCHEMA_VERSION: Final[Literal["1.0"]] = "1.0"
+# 1.1 added provider, model, and populated usage fields. 1.0 records (written
+# before any live arm existed) still load; their provider fields default empty.
+RESULT_SCHEMA_VERSION: Final[Literal["1.1"]] = "1.1"
 
 # What each arm's output means for the primary metric.
 MARKED_READY_FINAL = {ExternalState.READY_FOR_REVIEW.value}
@@ -29,7 +31,7 @@ MARKED_READY_BASELINE = {"approve"}
 class RunRecord(StrictModel):
     """One case, one arm, one repeat."""
 
-    schema_version: Literal["1.0"] = RESULT_SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = RESULT_SCHEMA_VERSION
     arm: str
     case_id: str
     repeat: int = Field(ge=1)
@@ -37,6 +39,11 @@ class RunRecord(StrictModel):
     marked_ready: bool
     evidence_incomplete: bool
     asked_for_authority: bool
+    # How the model calls were served: a provider name ("claude_cli",
+    # "anthropic", "fake") or "" for a deterministic run with no model stage.
+    provider: str = ""
+    # The resolved model identity as reported per call, never the requested one.
+    model: str = ""
     duration_ms: int = Field(ge=0)
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
@@ -52,7 +59,7 @@ class RunRecord(StrictModel):
 class ArmMetrics(StrictModel):
     """Counts first, then rates. A rate with no denominator says nothing."""
 
-    schema_version: Literal["1.0"] = RESULT_SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = RESULT_SCHEMA_VERSION
     arm: str
     runs: int
 

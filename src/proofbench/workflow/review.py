@@ -92,6 +92,11 @@ def review_case(
 
     if use_agents and provider is None:
         provider = fake_provider_for(case_path.parent)
+    # The mode is a fact about how calls were served, recorded once here so the
+    # certificate, run.json, and metrics cannot disagree about it again.
+    provider_mode = (
+        provider.mode if use_agents and provider is not None else ProviderMode.NONE.value
+    )
 
     sandbox = PostgresSandbox(run_id, fixture_paths(loaded))
     writer = TraceWriter(run_dir / "trajectory.jsonl", run_id)
@@ -298,7 +303,7 @@ def review_case(
         trajectory=trajectory,
         resolved_image_id=resolved_image,
         run_kind=RunKind.MIGRATION_COURT.value,
-        provider_mode=ProviderMode.NONE.value,
+        provider_mode=provider_mode,
     )
 
     write_bundle(
@@ -318,9 +323,22 @@ def review_case(
             remediation,
             packet,
             ruling,
+            provider_mode=provider_mode,
+            model_calls=_count_model_calls(provider),
         ),
     )
     return cert, run_dir
+
+
+def _count_model_calls(provider: ModelProvider | None) -> int:
+    """How many calls actually reached the provider, counted, never assumed.
+
+    Both the fake provider and the metered wrapper expose their call log; a
+    bare unmetered provider reports zero, which is the honest floor rather
+    than a guess of three.
+    """
+    calls = getattr(provider, "calls", None)
+    return len(calls) if isinstance(calls, list) else 0
 
 
 def _prompt_hashes(
@@ -475,6 +493,9 @@ def _artifacts(
     remediation: RemediationPlan | None,
     packet: RulingPacket | None,
     ruling: Ruling | None,
+    *,
+    provider_mode: str,
+    model_calls: int,
 ) -> dict[str, bytes]:
     """The per-run artifacts PRD section 12 requires, plus the frozen inputs.
 
@@ -497,7 +518,7 @@ def _artifacts(
         "run.json": canonical_json(
             {
                 "run_kind": "migration_court",
-                "provider_mode": "fake" if contract is not None else "none",
+                "provider_mode": provider_mode,
                 "case_id": loaded.case.case_id,
                 "inputs_digest": loaded.inputs_digest,
                 "not_applicable": not_applicable,
@@ -519,7 +540,7 @@ def _artifacts(
                 "checks_executed": sum(len(result.checks) for result in world_results),
                 "findings": sum(len(result.findings) for result in world_results),
                 "corrected_worlds_run": len(remediation_results),
-                "model_calls": 0 if contract is None else 3,
+                "model_calls": model_calls,
             }
         ),
         "inputs/case.yaml": (root / "cases" / loaded.case.case_id / "case.yaml").read_bytes(),

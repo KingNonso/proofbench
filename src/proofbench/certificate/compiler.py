@@ -59,6 +59,7 @@ def _known_limits(
     decision: DecisionRecord,
     world_results: list[WorldResult],
     trajectory: TrajectorySummary,
+    provider_mode: str,
 ) -> list[str]:
     """Describe the evidence this specific run did and did not produce."""
     worlds = sorted(result.world for result in world_results)
@@ -76,6 +77,12 @@ def _known_limits(
     limits = [world_limit]
     if not any(stage.startswith("agent:") for stage in trajectory.stages):
         limits.append("No agent participated in this run.")
+    if provider_mode == "live":
+        limits.append(
+            "Live model sampling is not seed-controlled: no available provider "
+            "interface accepts a sampling seed. The recorded case seed governs the "
+            "deterministic harness only; agent outputs may vary between live runs."
+        )
     if not decision.possible:
         limits.append(
             "No hypothetical blast-radius findings were recorded. Only impacts supported "
@@ -128,7 +135,7 @@ def build_certificate(
         trajectory=trajectory,
         environment=_environment(resolved_image_id),
         inputs_digest=loaded.inputs_digest,
-        known_limits=_known_limits(decision, world_results, trajectory),
+        known_limits=_known_limits(decision, world_results, trajectory, provider_mode),
     )
 
 
