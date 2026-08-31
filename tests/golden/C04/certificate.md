@@ -27,7 +27,7 @@ uv run proofbench replay certificate.json
 
 Decisive checks: none
 Evidence complete: yes
-Possible impact (not executed): 0
+Possible impact (not executed): 3
 
 ## Visible tests
 
@@ -37,7 +37,7 @@ Possible impact (not executed): 0
 
 ## Trajectory
 
-12 events, root `97f69ef748968c9d`.
+12 events, root `1dc6ce538ce5846f`.
 
 1. [ingest] reviewing C04: Backfill a missing currency and make the column NOT NULL
 2. [agent:contract_analyst] contract_analyst request, attempt 1
@@ -68,5 +68,4 @@ Manifest: `manifest.json`
 ## Known limits
 
 - No deterministic world executed in this run; the recorded decision was made before world execution.
-- No hypothetical blast-radius findings were recorded. Only impacts supported by executed evidence appear as confirmed impact.
 - ProofBench reviews a candidate in a sandbox. It does not approve, merge, or apply a migration, and READY_FOR_REVIEW is not an approval.

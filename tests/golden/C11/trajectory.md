@@ -1,6 +1,6 @@
 # Trajectory — C11
 
-Run `C11`. 14 events. Trace root `7e029d8741afa8e9`.
+Run `C11`. 14 events. Trace root `587c6582b231f136`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.

@@ -1,6 +1,6 @@
 # Trajectory — C12
 
-Run `C12`. 24 events. Trace root `2b2112fdeee3625a`.
+Run `C12`. 24 events. Trace root `ffb2095755f41c8d`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.

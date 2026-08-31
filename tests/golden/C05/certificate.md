@@ -46,7 +46,7 @@ Semantic digest: `585cddb88b1687a011fbe6296e87949b7eaf5bd261b4af67e326f8cad8476e
 
 ## Trajectory
 
-12 events, root `6df7d2fb4923f202`.
+12 events, root `9ed1af87bdec8bfd`.
 
 1. [ingest] reviewing C05: Drop the old amount column after adding a scaled replacement
 2. [agent:contract_analyst] contract_analyst request, attempt 1

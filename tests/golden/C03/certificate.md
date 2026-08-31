@@ -46,7 +46,7 @@ Semantic digest: `a1b9bc4c4f068303fc14ea98bae166441a57eb93c62f710a7710b46d60b470
 
 ## Trajectory
 
-12 events, root `fa5f9b45dd4e4fb2`.
+12 events, root `7238809bce203ee1`.
 
 1. [ingest] reviewing C03: Re-denominate payment amounts through a floating point conversion
 2. [agent:contract_analyst] contract_analyst request, attempt 1

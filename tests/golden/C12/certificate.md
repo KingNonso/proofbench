@@ -85,7 +85,7 @@ Semantic digest: `97d5002f381ebb2f1aca86fb5084ecb00d7b525e2a44266fad34927b876319
 
 ## Trajectory
 
-24 events, root `2b2112fdeee3625a`.
+24 events, root `ffb2095755f41c8d`.
 
 1. [ingest] reviewing C12: Introduce a reconciliation column across a rolling deploy, with a safe rollback
 2. [agent:contract_analyst] contract_analyst request, attempt 1

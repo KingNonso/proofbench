@@ -1,6 +1,6 @@
 # Trajectory — C03
 
-Run `C03`. 12 events. Trace root `fa5f9b45dd4e4fb2`.
+Run `C03`. 12 events. Trace root `7238809bce203ee1`.
 
 Observable actions only. No hidden reasoning is recorded, and none is
 reconstructed here.
